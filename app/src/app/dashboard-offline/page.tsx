@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 export default function DashboardOffline() {
-  const { user } = useAuth()
+  const { user } = useCurrentUser()
   const [stats, setStats] = useState({
     todaySales: 0,
     totalProducts: 0,

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 export default function AccountsOffline() {
-  const { user } = useAuth()
+  const { user } = useCurrentUser()
   const [accounts, setAccounts] = useState({
     efectivo: 0,
     yape: 0,

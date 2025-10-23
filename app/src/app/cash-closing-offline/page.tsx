@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 export default function CashClosingOffline() {
-  const { user } = useAuth()
+  const { user } = useCurrentUser()
   const [todayStats, setTodayStats] = useState({
     totalSales: 0,
     totalExpenses: 0,

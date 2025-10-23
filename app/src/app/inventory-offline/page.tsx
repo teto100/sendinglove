@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ProductImage from '@/components/ui/ProductImage'
 
 export default function InventoryOffline() {
-  const { user } = useAuth()
+  const { user } = useCurrentUser()
   const [products, setProducts] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
