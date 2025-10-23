@@ -1,9 +1,30 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { offlineStorage } from '@/lib/offlineStorage'
 
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic'
+
 export default function OrdersOfflinePage() {
-  const orders = offlineStorage.getOfflineOrders()
+  const [orders, setOrders] = useState<any[]>([])
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined') {
+      const offlineOrders = offlineStorage.getOfflineOrders()
+      setOrders(offlineOrders)
+    }
+  }, [])
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="text-center py-8">Cargando...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
