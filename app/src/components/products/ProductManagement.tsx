@@ -177,10 +177,10 @@ export default function ProductManagement() {
         <LoadingModal isOpen={loading} message="Cargando productos..." />
         <LoadingModal isOpen={operationLoading} message="Procesando..." />
         
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Productos</h1>
-            <div className="flex gap-2">
+        <div className="p-3 lg:p-6">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 lg:mb-6 gap-3 lg:gap-0">
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Gestión de Productos</h1>
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={forceRefreshFromFirebase}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
@@ -582,8 +582,69 @@ export default function ProductManagement() {
             </div>
           )}
 
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
+            {/* Mobile Cards */}
+            <div className="block lg:hidden">
+              {products.map((product) => (
+                <div key={product.id} className="border-b border-gray-100 p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <ProductImage
+                      src={product.imageUrl}
+                      alt={product.name}
+                      width={60}
+                      height={60}
+                      className="h-15 w-15 rounded-lg object-cover flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                      <div className="text-sm text-gray-500 truncate">{product.description}</div>
+                      <div className="text-lg font-bold text-green-600 mt-1">S/ {product.price.toFixed(2)}</div>
+                      <div className="text-xs text-gray-400">{product.sku}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        product.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {product.active ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <PermissionButton
+                      module="products"
+                      permission="update"
+                      onClick={() => handleEditProduct(product)}
+                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 touch-manipulation active:scale-95"
+                    >
+                      Editar
+                    </PermissionButton>
+                    <PermissionButton
+                      module="products"
+                      permission="update"
+                      onClick={() => toggleProductStatus(product.id, product.active)}
+                      className={`px-3 py-2 rounded-lg text-xs touch-manipulation active:scale-95 ${
+                        product.active 
+                          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                    >
+                      {product.active ? 'Desactivar' : 'Activar'}
+                    </PermissionButton>
+                    <PermissionButton
+                      module="products"
+                      permission="delete"
+                      onClick={() => handleDeleteProduct(product.id, product.name)}
+                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs hover:bg-red-200 touch-manipulation active:scale-95"
+                    >
+                      Eliminar
+                    </PermissionButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Desktop Table */}
+            <table className="hidden lg:table min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>

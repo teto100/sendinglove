@@ -23,10 +23,58 @@ export default function OfflineMenu() {
       description: 'Consultar stock'
     },
     {
-      name: 'Pedidos Pendientes',
+      name: 'Pedidos',
       href: '/orders-offline',
       icon: '📋',
       description: 'Ver pedidos offline'
+    },
+    {
+      name: 'Dashboard',
+      href: '/dashboard-offline',
+      icon: '📈',
+      description: 'Reportes básicos'
+    },
+    {
+      name: 'Usuarios',
+      href: '/users-offline',
+      icon: '👥',
+      description: 'Gestión usuarios'
+    },
+    {
+      name: 'Proveedores',
+      href: '/suppliers-offline',
+      icon: '🏢',
+      description: 'Ver proveedores'
+    },
+    {
+      name: 'Gastos',
+      href: '/expenses-offline',
+      icon: '💰',
+      description: 'Registrar gastos'
+    },
+    {
+      name: 'Cuentas',
+      href: '/accounts-offline',
+      icon: '💳',
+      description: 'Ver cuentas'
+    },
+    {
+      name: 'Clientes',
+      href: '/customers-offline',
+      icon: '👤',
+      description: 'Gestión clientes'
+    },
+    {
+      name: 'Compras',
+      href: '/purchases-offline',
+      icon: '🛍️',
+      description: 'Ver compras'
+    },
+    {
+      name: 'Cierre Caja',
+      href: '/cash-closing-offline',
+      icon: '💵',
+      description: 'Cierre diario'
     }
   ]
 
@@ -74,14 +122,10 @@ export default function OfflineMenu() {
         </div>
 
         <div className="mt-12 bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Módulos No Disponibles Offline</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {['Reportes', 'Usuarios', 'Compras', 'Gastos'].map((module) => (
-              <div key={module} className="p-3 bg-gray-100 rounded text-center opacity-50">
-                <span className="text-sm text-gray-500">{module}</span>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Funcionalidad Offline</h3>
+          <p className="text-sm text-gray-600">
+            Todos los módulos funcionan offline con datos en caché. La sincronización ocurre automáticamente al recuperar conexión.
+          </p>
         </div>
       </div>
     </div>

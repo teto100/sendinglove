@@ -372,15 +372,15 @@ export default function POSSystem() {
       <div className="min-h-screen bg-gray-100">
         <Header />
         
-        <div className="flex h-screen pt-16">
+        <div className="flex flex-col lg:flex-row h-screen pt-16">
           {/* Panel de órdenes */}
           {showOrdersList && (
-            <div className="w-2/5 bg-white border-r p-4 overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Órdenes Activas</h2>
+            <div className="w-full lg:w-2/5 bg-white border-r border-b lg:border-b-0 p-2 lg:p-4 overflow-y-auto max-h-64 lg:max-h-none">
+              <div className="flex justify-between items-center mb-2 lg:mb-4">
+                <h2 className="text-lg lg:text-xl font-bold">Órdenes Activas</h2>
                 <button
                   onClick={() => setShowOrdersList(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 hover:text-gray-700 lg:hidden"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -388,7 +388,7 @@ export default function POSSystem() {
                 </button>
               </div>
               
-              <div className="space-y-3">
+              <div className="flex lg:flex-col gap-2 lg:gap-3 overflow-x-auto lg:overflow-x-visible">
                 {sales.map(order => (
                   <div
                     key={order.id}
@@ -401,7 +401,7 @@ export default function POSSystem() {
                         loadOrderToCart(order)
                       }
                     }}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-2 lg:p-3 border rounded-lg cursor-pointer transition-colors min-w-48 lg:min-w-0 touch-manipulation active:scale-95 ${
                       selectedOrder?.id === order.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
                     }`}
                   >
@@ -457,59 +457,59 @@ export default function POSSystem() {
           {!showOrdersList && (
             <button
               onClick={() => setShowOrdersList(true)}
-              className="fixed left-4 top-20 z-10 bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600"
+              className="fixed left-2 top-20 z-10 bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 lg:hidden touch-manipulation active:scale-95"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           )}
           {/* Panel de productos */}
-          <div className={`${showOrdersList ? 'w-3/5' : 'flex-1'} p-4`}>
-            <div className="mb-4 flex gap-4">
+          <div className={`${showOrdersList ? 'flex-1 lg:w-3/5' : 'flex-1'} p-2 lg:p-4`}>
+            <div className="mb-3 lg:mb-4 flex flex-col sm:flex-row gap-2 lg:gap-4">
               <input
                 type="text"
-                placeholder="Buscar por nombre o código..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 p-3 border rounded-lg"
+                className="flex-1 p-2 lg:p-3 border rounded-lg text-sm lg:text-base"
               />
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="p-3 border rounded-lg"
+                className="p-2 lg:p-3 border rounded-lg text-sm lg:text-base min-w-32"
               >
-                <option value="all">Todas las categorías</option>
+                <option value="all">Todas</option>
                 {categories.filter(c => c.name !== 'Acompañamientos').map(category => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2 lg:gap-4">
               {filteredProducts.map(product => (
                 <div
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="bg-white p-4 rounded-lg shadow cursor-pointer hover:shadow-md transition-shadow"
+                  className="bg-white p-2 lg:p-4 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all touch-manipulation active:scale-95 border border-gray-100"
                 >
                   <ProductImage
                     src={product.imageUrl}
                     alt={product.name}
                     width={150}
                     height={96}
-                    className="w-full h-24 object-cover rounded mb-2"
+                    className="w-full h-16 lg:h-24 object-cover rounded-lg mb-2"
                   />
-                  <h3 className="font-semibold text-sm">{product.name}</h3>
-                  <p className="text-lg font-bold text-green-600">S/ {product.price.toFixed(2)}</p>
-                  <p className="text-xs text-gray-500">{product.sku}</p>
+                  <h3 className="font-semibold text-xs lg:text-sm leading-tight mb-1">{product.name}</h3>
+                  <p className="text-sm lg:text-lg font-bold text-green-600">S/ {product.price.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500 hidden lg:block">{product.sku}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Panel del carrito */}
-          <div className="w-96 bg-white border-l p-4">
+          <div className="w-full lg:w-96 bg-white border-t lg:border-l lg:border-t-0 p-2 lg:p-4">
             {selectedOrder && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
                 <div className="flex justify-between items-center mb-2">
@@ -531,8 +531,8 @@ export default function POSSystem() {
                 </div>
               </div>
             )}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">{selectedOrder ? 'Editar Orden' : 'Pedido Actual'}</h2>
+            <div className="flex justify-between items-center mb-3 lg:mb-4">
+              <h2 className="text-lg lg:text-xl font-bold">{selectedOrder ? 'Editar Orden' : 'Pedido Actual'}</h2>
               {!isOnline && (
                 <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">
                   Offline
@@ -540,9 +540,9 @@ export default function POSSystem() {
               )}
             </div>
             
-            <div className="flex-1 overflow-y-auto mb-4">
+            <div className="flex-1 overflow-y-auto mb-3 lg:mb-4 max-h-48 lg:max-h-none">
               {cart.map(item => (
-                <div key={item.id} className="border-b pb-2 mb-2">
+                <div key={item.id} className="border-b pb-2 mb-2 text-sm lg:text-base">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{item.name}</span>
                     <button
@@ -563,14 +563,14 @@ export default function POSSystem() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-6 h-6 bg-red-500 text-white rounded text-sm"
+                        className="w-8 h-8 lg:w-6 lg:h-6 bg-red-500 text-white rounded text-sm touch-manipulation active:scale-95"
                       >
                         -
                       </button>
-                      <span>{item.quantity}</span>
+                      <span className="min-w-6 text-center">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-6 h-6 bg-green-500 text-white rounded text-sm"
+                        className="w-8 h-8 lg:w-6 lg:h-6 bg-green-500 text-white rounded text-sm touch-manipulation active:scale-95"
                       >
                         +
                       </button>
@@ -668,11 +668,11 @@ export default function POSSystem() {
                 )}
               </div>
 
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-3 lg:mb-4">
                 <button
                   onClick={clearCart}
                   disabled={isProcessing}
-                  className={`flex-1 py-2 rounded text-white transition-colors ${
+                  className={`flex-1 py-3 lg:py-2 rounded-lg text-white transition-all touch-manipulation active:scale-95 text-sm lg:text-base ${
                     isProcessing ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
                   }`}
                 >
@@ -681,13 +681,13 @@ export default function POSSystem() {
                 <button
                   onClick={() => setShowPayment(true)}
                   disabled={isProcessing || cart.length === 0}
-                  className={`flex-1 py-2 rounded text-white transition-colors ${
+                  className={`flex-1 py-3 lg:py-2 rounded-lg text-white transition-all touch-manipulation active:scale-95 text-sm lg:text-base ${
                     isProcessing || cart.length === 0 
                       ? 'bg-gray-300 cursor-not-allowed' 
                       : 'bg-green-500 hover:bg-green-600'
                   }`}
                 >
-                  {isProcessing ? 'Procesando...' : paymentStatus === 'SIN PAGAR' ? 'Guardar Orden' : 'Pagar'}
+                  {isProcessing ? 'Procesando...' : paymentStatus === 'SIN PAGAR' ? 'Guardar' : 'Pagar'}
                 </button>
               </div>
             </div>

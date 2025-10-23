@@ -135,7 +135,7 @@ export default function UserManagement() {
       <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={async () => {
               setShowCleanupModal(true)
@@ -335,8 +335,84 @@ export default function UserManagement() {
         </div>
       )}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
+        {/* Mobile Cards */}
+        <div className="block lg:hidden">
+          {users.map((user) => (
+            <div key={user.id} className="border-b border-gray-100 p-4">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">{user.name}</div>
+                  <div className="text-sm text-gray-500">{user.email}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {user.createdAt instanceof Date 
+                      ? user.createdAt.toLocaleDateString()
+                      : new Date(user.createdAt).toLocaleDateString()
+                    }
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colors.roles[user.role]}`}>
+                    {roleLabels[user.role]}
+                  </span>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {user.active ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-1">
+                {isRoot && (
+                  <PermissionButton
+                    module="users"
+                    permission="update"
+                    onClick={() => handleEdit(user)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 touch-manipulation active:scale-95"
+                  >
+                    Editar
+                  </PermissionButton>
+                )}
+                {!isRoot && (
+                  <button
+                    className="px-3 py-2 bg-gray-100 text-gray-500 rounded-lg text-xs cursor-not-allowed"
+                    disabled
+                  >
+                    Solo lectura
+                  </button>
+                )}
+                {isRoot && user.role !== 'root' && (
+                  <>
+                    <PermissionButton
+                      module="users"
+                      permission="update"
+                      onClick={() => toggleUserStatus(user.id, user.active)}
+                      className={`px-3 py-2 rounded-lg text-xs touch-manipulation active:scale-95 ${
+                        user.active 
+                          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                    >
+                      {user.active ? 'Desactivar' : 'Activar'}
+                    </PermissionButton>
+                    <PermissionButton
+                      module="users"
+                      permission="delete"
+                      onClick={() => handleDelete(user.id, user.name)}
+                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs hover:bg-red-200 touch-manipulation active:scale-95"
+                    >
+                      Eliminar
+                    </PermissionButton>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Desktop Table */}
+        <table className="hidden lg:table min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">

@@ -34,48 +34,41 @@ export default function Dashboard() {
     <div className="min-h-screen" style={{backgroundColor: '#F9F7F8'}}>
       <Header />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 sm:px-6 lg:px-8">
+        <div className="px-3 py-4 sm:px-0">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-6">
             {accessibleModules.map((module) => (
               <Link 
                 key={module.id} 
                 href={module.path} 
-                className={`bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-all cursor-pointer ${
+                className={`bg-white overflow-hidden shadow-sm rounded-xl hover:shadow-md transition-all cursor-pointer border border-gray-100 ${
                   module.id === 'sales' 
-                    ? 'md:col-span-2 lg:col-span-1 xl:col-span-2 ring-2 ring-yellow-400 shadow-lg transform hover:scale-105' 
-                    : ''
+                    ? 'col-span-2 sm:col-span-2 md:col-span-2 lg:col-span-2 ring-2 ring-yellow-400 shadow-lg transform hover:scale-105' 
+                    : 'hover:scale-102'
                 }`}
               >
-                <div className={`${module.id === 'sales' ? 'p-8' : 'p-5'}`}>
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <div className={`rounded-md flex items-center justify-center ${
-                        module.id === 'sales' ? 'w-12 h-12 bg-yellow-100' : 'w-8 h-8'
-                      }`}>
-                        <span className={`font-bold ${
-                          module.id === 'sales' ? 'text-4xl' : 'text-2xl'
-                        }`}>{module.icon}</span>
-                      </div>
+                <div className={`${module.id === 'sales' ? 'p-4 sm:p-6' : 'p-3 sm:p-4'} text-center`}>
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className={`rounded-full flex items-center justify-center ${
+                      module.id === 'sales' 
+                        ? 'w-16 h-16 sm:w-20 sm:h-20 bg-yellow-100' 
+                        : 'w-12 h-12 sm:w-14 sm:h-14 bg-gray-50'
+                    }`}>
+                      <span className={`${
+                        module.id === 'sales' ? 'text-3xl sm:text-4xl' : 'text-xl sm:text-2xl'
+                      }`}>{module.icon}</span>
                     </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className={`font-medium truncate ${
-                          module.id === 'sales' ? 'text-lg' : 'text-sm'
-                        }`} style={{color: '#B2B171'}}>
-                          {module.name}
-                        </dt>
-                        <dd className={`font-medium ${
-                          module.id === 'sales' ? 'text-2xl' : 'text-lg'
-                        }`} style={{color: '#CF432B'}}>
-                          {module.description}
-                        </dd>
-                        {module.id === 'sales' && (
-                          <dd className="text-sm mt-1" style={{color: '#B2B171'}}>
-                           
-                          </dd>
-                        )}
-                      </dl>
+                    <div className="text-center">
+                      <h3 className={`font-semibold ${
+                        module.id === 'sales' ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'
+                      }`} style={{color: '#B2B171'}}>
+                        {module.name}
+                      </h3>
+                      <p className={`font-medium mt-1 ${
+                        module.id === 'sales' ? 'text-lg sm:text-xl' : 'text-xs sm:text-sm'
+                      }`} style={{color: '#CF432B'}}>
+                        {module.description}
+                      </p>
                     </div>
                   </div>
                 </div>

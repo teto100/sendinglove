@@ -274,16 +274,16 @@ export default function OrdersList() {
       <div className="min-h-screen bg-gray-100">
         <Header />
         
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 pt-20">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-2xl font-bold" style={{color: '#CF432B'}}>
+        <div className="max-w-7xl mx-auto py-3 lg:py-6 px-3 lg:px-8 pt-20">
+          <div className="py-3 lg:py-6">
+            <div className="bg-white shadow-sm rounded-xl border border-gray-100">
+              <div className="px-3 py-4 lg:px-6 lg:py-5">
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 lg:mb-6 gap-3 lg:gap-0">
+                  <h1 className="text-xl lg:text-2xl font-bold" style={{color: '#CF432B'}}>
                     Listado de Pedidos
                   </h1>
                   {hasPermission('orders', 'create') && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => exportToCSV()}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -304,7 +304,62 @@ export default function OrdersList() {
                   <div className="text-center py-8">Cargando pedidos...</div>
                 ) : (
                   <>
-                    <div className="overflow-x-auto">
+                    {/* Mobile Cards */}
+                    <div className="block lg:hidden space-y-4">
+                      {sales.map((order) => (
+                        <div key={order.id} className={`border rounded-xl p-4 ${order.orderStatus === 'Eliminado' ? 'bg-gray-100 opacity-60' : 'bg-white border-gray-200'}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{order.orderType}</div>
+                              <div className="text-sm text-gray-500">{order.createdAt.toLocaleDateString()} {order.createdAt.toLocaleTimeString()}</div>
+                              <div className="text-lg font-bold text-green-600 mt-1">S/ {order.total.toFixed(2)}</div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.orderStatus)}`}>
+                                {order.orderStatus}
+                              </span>
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentColor(order.paymentStatus)}`}>
+                                {order.paymentStatus}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                            <div>Productos: {order.items.length}</div>
+                            <div>Cliente: {order.customerName || '-'}</div>
+                            <div>Pago: {order.paymentMethod || order.paymentMethods?.[0]?.method || '-'}</div>
+                            <div>Mesa: {order.tableNumber || '-'}</div>
+                          </div>
+                          
+                          {order.orderStatus !== 'Eliminado' && (
+                            <div className="flex gap-2">
+                              {hasPermission('orders', 'update') && (
+                                <button
+                                  onClick={() => handleEditOrder(order)}
+                                  className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 touch-manipulation active:scale-95"
+                                >
+                                  Editar
+                                </button>
+                              )}
+                              {hasPermission('orders', 'delete') && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(order)
+                                    setShowDeleteModal(true)
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 touch-manipulation active:scale-95"
+                                >
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Desktop Table */}
+                    <div className="hidden lg:block overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
