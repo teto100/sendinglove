@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUsers } from '@/hooks/useUsers'
 import { CreateUserData, UserRole } from '@/types/user'
 import Header from '@/components/layout/Header'
@@ -9,6 +10,7 @@ import LoadingModal from '@/components/ui/LoadingModal'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import PermissionButton from '@/components/ui/PermissionButton'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 const roleLabels: Record<UserRole, string> = {
   root: 'Root',
@@ -21,7 +23,10 @@ const roleLabels: Record<UserRole, string> = {
 
 
 export default function UserManagement() {
-  const { users, loading, createUser, updateUser, deleteUser, clearCache } = useUsers()
+  const router = useRouter()
+  const { user: currentUser } = useCurrentUser()
+  const { users, loading, createUser, updateUser, deleteUser, syncUserWithAuth, clearCache } = useUsers()
+  const isRoot = currentUser?.role === 'root'
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [formData, setFormData] = useState<CreateUserData>({
@@ -53,7 +58,7 @@ export default function UserManagement() {
       setFormData({ email: '', password: '', name: '', role: 'usuario' })
       
       alert('Usuario creado exitosamente. El usuario podrá iniciar sesión con sus credenciales.')
-      window.location.reload() // Solo recargar para mostrar el nuevo usuario
+      router.refresh()
     } else {
       alert('Error: ' + result.error)
     }
@@ -78,7 +83,7 @@ export default function UserManagement() {
         metadata: { userId: editingUser, newRole: editData.role }
       })
       setEditingUser(null)
-      window.location.reload()
+      router.refresh()
     } else {
       alert('Error: ' + result.error)
     }
@@ -112,7 +117,7 @@ export default function UserManagement() {
         description: `Usuario ${!currentStatus ? 'activado' : 'desactivado'}: ${user?.name}`,
         metadata: { userId, newStatus: !currentStatus }
       })
-      window.location.reload()
+      router.refresh()
     } else {
       alert('Error: ' + result.error)
     }
@@ -176,7 +181,47 @@ export default function UserManagement() {
             Limpiar Todo
           </button>
           <button
-            onClick={clearCache}
+            onClick={async () => {
+              if (users.length === 0) {
+                alert('No hay usuarios disponibles')
+                return
+              }
+              
+              const userList = users.map((u, i) => `${i + 1}. ${u.name} (${u.email}) [ID: ${u.id}]`).join('\n')
+              const userIndex = prompt(`Usuarios en Firestore:\n${userList}\n\nSelecciona el número del usuario a sincronizar:`)
+              
+              if (!userIndex || isNaN(parseInt(userIndex))) return
+              
+              const selectedUser = users[parseInt(userIndex) - 1]
+              if (!selectedUser) {
+                alert('Usuario no válido')
+                return
+              }
+              
+              const authUID = prompt(`UID de Firebase Auth para ${selectedUser.name}:\n(Copia desde Firebase Console → Authentication)`)
+              if (!authUID) return
+              
+              setOperationLoading(true)
+              const result = await syncUserWithAuth(selectedUser.email, authUID)
+              setOperationLoading(false)
+              
+              if (result.success) {
+                alert(`Usuario ${selectedUser.name} sincronizado correctamente\nAhora puede hacer login y ver los módulos`)
+                router.refresh()
+              } else {
+                alert('Error: ' + result.error)
+              }
+            }}
+            className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 text-sm"
+          >
+            Sincronizar Usuario
+          </button>
+          <button
+            onClick={async () => {
+              localStorage.removeItem('cache_users')
+              localStorage.removeItem('cache_version_users')
+              router.refresh()
+            }}
             className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm"
           >
             Actualizar
@@ -273,7 +318,7 @@ export default function UserManagement() {
             {cleanupStep.includes('✅') && (
               <div className="space-y-3">
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => router.refresh()}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
                 >
                   Recargar Página
@@ -379,15 +424,25 @@ export default function UserManagement() {
                     </div>
                   ) : (
                     <div className="flex gap-1">
-                      <PermissionButton
-                        module="users"
-                        permission="update"
-                        onClick={() => handleEdit(user)}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
-                      >
-                        Editar
-                      </PermissionButton>
-                      {user.role !== 'root' && (
+                      {isRoot && (
+                        <PermissionButton
+                          module="users"
+                          permission="update"
+                          onClick={() => handleEdit(user)}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                        >
+                          Editar
+                        </PermissionButton>
+                      )}
+                      {!isRoot && (
+                        <button
+                          className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-xs cursor-not-allowed"
+                          disabled
+                        >
+                          Solo lectura
+                        </button>
+                      )}
+                      {isRoot && user.role !== 'root' && (
                         <PermissionButton
                           module="users"
                           permission="update"
@@ -401,7 +456,7 @@ export default function UserManagement() {
                           {user.active ? 'Desactivar' : 'Activar'}
                         </PermissionButton>
                       )}
-                      {user.role !== 'root' && (
+                      {isRoot && user.role !== 'root' && (
                         <PermissionButton
                           module="users"
                           permission="delete"

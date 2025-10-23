@@ -17,10 +17,6 @@ export function useUsers() {
     try {
       setOperationLoading(true)
       
-      // Limpiar cache antes de crear usuario
-      localStorage.removeItem('cache_users')
-      localStorage.removeItem('cache_version_users')
-      
       // Validaciones básicas
       if (!userData.email || !userData.password || !userData.name) {
         throw new Error('Todos los campos son requeridos')
@@ -30,22 +26,40 @@ export function useUsers() {
         throw new Error('La contraseña debe tener al menos 6 caracteres')
       }
       
-      // Crear usuario directamente en Firestore sin afectar Auth
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      // Crear usuario en Firebase Auth
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userData.email.trim(),
+          password: userData.password,
+          name: userData.name
+        })
+      })
       
-      // Guardar datos del usuario en Firestore
-      await setDoc(doc(db, 'users', userId), {
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al crear usuario')
+      }
+      
+      console.log('Creating Firestore document with UID:', result.uid)
+      
+      // Crear documento en Firestore
+      await setDoc(doc(db, 'users', result.uid), {
         email: userData.email.trim(),
         name: userData.name,
         role: userData.role,
         active: true,
         createdAt: new Date(),
-        tempUser: true, // Marcar como usuario temporal hasta que se loguee
-        tempPassword: userData.password // Solo para referencia, se eliminará al primer login
+        canEditProfile: true,
+        lastLogin: null
       })
       
+      console.log('Firestore document created successfully')
+      
       await VersionManager.updateVersion('users')
-      return { success: true, requiresReauth: false }
+      return { success: true, uid: result.uid }
     } catch (error: any) {
       
       let errorMessage = 'Error desconocido'
@@ -113,12 +127,40 @@ export function useUsers() {
     }
   }
 
+  const syncUserWithAuth = async (email: string, authUID: string) => {
+    try {
+      setOperationLoading(true)
+      
+      // Buscar usuario por email
+      const tempUser = users.find(u => u.email === email)
+      if (!tempUser) {
+        return { success: false, error: 'Usuario no encontrado' }
+      }
+      
+      // Crear documento con UID de Auth
+      await setDoc(doc(db, 'users', authUID), {
+        ...tempUser,
+        id: authUID,
+        tempUser: false,
+        syncedAt: new Date()
+      })
+      
+      // Eliminar documento temporal
+      await deleteDoc(doc(db, 'users', tempUser.id))
+      
+      await VersionManager.updateVersion('users')
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    } finally {
+      setOperationLoading(false)
+    }
+  }
+
   const clearCache = async () => {
-    // Limpiar todo el caché relacionado con usuarios
     localStorage.removeItem('cache_users')
     localStorage.removeItem('cache_version_users')
     
-    // Consulta directa a Firebase sin caché
     setOperationLoading(true)
     try {
       const q = query(collection(db, 'users'), orderBy('name'))
@@ -129,7 +171,6 @@ export function useUsers() {
         createdAt: doc.data().createdAt?.toDate?.() || new Date()
       })) as User[]
       
-      // Forzar re-render del componente
       window.location.reload()
     } catch (error) {
       alert('Error al cargar usuarios: ' + error)
@@ -144,6 +185,7 @@ export function useUsers() {
     createUser,
     updateUser,
     deleteUser,
+    syncUserWithAuth,
     refresh,
     clearCache
   }

@@ -2,21 +2,38 @@
   "name": "Sending Love - Sistema de Gestión",
   "short_name": "Sending Love",
   "description": "Sistema integral de gestión para fuente de soda",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "display": "standalone",
+  "scope": "/",
   "background_color": "#ffffff",
   "theme_color": "#3B82F6",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "/sending.jpg",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
       "src": "/sending.jpg", 
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/sending.jpg",
+      "sizes": "834x834",
+      "type": "image/jpeg",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/sending.jpg",
+      "sizes": "834x834",
+      "type": "image/jpeg",
+      "form_factor": "wide"
     }
   ],
   "categories": ["business", "productivity"],

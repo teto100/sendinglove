@@ -3,6 +3,7 @@
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useActivityLogger } from '@/hooks/useActivityLogger'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCacheStatus } from '@/hooks/useCacheStatus'
@@ -10,20 +11,34 @@ import { colors } from '@/styles/colors'
 import { useEffect, useState } from 'react'
 
 export default function Header() {
+  const router = useRouter()
   const { logActivity } = useActivityLogger()
   const { user, loginTime } = useCurrentUser()
   const cacheStatus = useCacheStatus()
   const [mounted, setMounted] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   useEffect(() => {
     setMounted(true)
     
-    // Registrar service worker para cache de imágenes
+    // Registrar service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {
         // Silent fail
       })
+    }
+
+    // Capturar evento de instalación PWA
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     }
   }, [])
   
@@ -32,14 +47,39 @@ export default function Header() {
     
     setIsLoggingOut(true)
     try {
+      // Log activity first
       await logActivity({
         type: 'user_logout',
         description: 'Usuario cerró sesión'
       })
+      
+      // Clear local data
       localStorage.removeItem('loginTime')
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Clear browser cache
+      if ('caches' in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+      }
+      
+      // Sign out from Firebase
       await signOut(auth)
+      
+      // Force redirect to home (login page)
+      router.push('/')
+      
+      // Fallback: reload page if redirect fails
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
+      
     } catch (error) {
-      setIsLoggingOut(false)
+      // Force redirect even on error
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.href = '/'
     }
   }
 
@@ -57,6 +97,21 @@ export default function Header() {
             <Link href="/" className="text-white hover:opacity-80 px-3 py-2 rounded-md text-sm font-medium">
               🏠 Menú Principal
             </Link>
+            
+            {deferredPrompt && (
+              <button
+                onClick={async () => {
+                  if (deferredPrompt) {
+                    deferredPrompt.prompt()
+                    const { outcome } = await deferredPrompt.userChoice
+                    setDeferredPrompt(null)
+                  }
+                }}
+                className="text-white hover:opacity-80 px-3 py-2 rounded-md text-sm font-medium bg-green-600"
+              >
+                📱 Instalar App
+              </button>
+            )}
             
             <div className="flex-1"></div>
             
@@ -102,12 +157,12 @@ export default function Header() {
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className={`text-white px-3 py-2 rounded-md text-sm font-medium ${
-                isLoggingOut ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'
+              className={`text-white px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                isLoggingOut ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 hover:bg-red-600'
               }`}
-              style={{backgroundColor: '#4B4C1E'}}
+              style={{backgroundColor: isLoggingOut ? '#4B4C1E' : '#DC2626'}}
             >
-              {isLoggingOut ? 'Saliendo...' : 'Salir'}
+              {isLoggingOut ? 'Cerrando...' : 'Cerrar Sesión'}
             </button>
           </div>
         </div>
