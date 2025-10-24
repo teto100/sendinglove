@@ -34,7 +34,7 @@ export default function Dashboard() {
     <div className="min-h-screen" style={{backgroundColor: '#F9F7F8'}}>
       <Header />
 
-      <main className="max-w-7xl mx-auto py-4 sm:py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-4 sm:py-6 sm:px-6 lg:px-8 pt-20">
         <div className="px-3 py-4 sm:px-0">
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-6">
             {accessibleModules.map((module) => (

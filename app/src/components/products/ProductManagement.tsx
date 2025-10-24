@@ -187,6 +187,23 @@ export default function ProductManagement() {
               >
                 🔄 Forzar Actualización
               </button>
+              <button
+                onClick={() => {
+                  const csvContent = [
+                    'Nombre',
+                    ...products.map(product => `"${product.name}"`)
+                  ].join('\n')
+                  
+                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                  const link = document.createElement('a')
+                  link.href = URL.createObjectURL(blob)
+                  link.download = `productos_${new Date().toISOString().split('T')[0]}.csv`
+                  link.click()
+                }}
+                className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700"
+              >
+                📥 Exportar CSV
+              </button>
               <PermissionButton
                 module="products"
                 permission="create"
