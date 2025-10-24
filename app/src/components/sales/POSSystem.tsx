@@ -8,6 +8,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useInventory } from '@/hooks/useInventory'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useDeviceType } from '@/hooks/useDeviceType'
 import { offlineStorage } from '@/lib/offlineStorage'
 import { SaleItem, SaleExtra, CreateSaleData } from '@/types/sale'
 import Header from '@/components/layout/Header'
@@ -16,6 +17,7 @@ import ProductImage from '@/components/ui/ProductImage'
 
 export default function POSSystem() {
   const isOnline = useOnlineStatus()
+  const deviceType = useDeviceType()
   const { products: onlineProducts } = useProducts()
   const { categories: onlineCategories } = useCategories()
   const { sales, createSale, updateSale } = useSales()
@@ -372,10 +374,10 @@ export default function POSSystem() {
       <div className="min-h-screen bg-gray-100">
         <Header />
         
-        <div className="flex flex-col lg:flex-row h-screen pt-16">
+        <div className={`${deviceType === 'mobile' ? 'flex flex-col' : 'flex flex-col lg:flex-row'} h-screen pt-16`}>
           {/* Panel de órdenes */}
           {showOrdersList && (
-            <div className="w-full lg:w-2/5 bg-white border-r border-b lg:border-b-0 p-2 lg:p-4 overflow-y-auto max-h-64 lg:max-h-none">
+            <div className={`w-full ${deviceType === 'mobile' ? 'max-h-48' : 'lg:w-2/5 max-h-64 lg:max-h-none'} bg-white border-r border-b lg:border-b-0 p-2 lg:p-4 overflow-y-auto`}>
               <div className="flex justify-between items-center mb-2 lg:mb-4">
                 <h2 className="text-lg lg:text-xl font-bold">Órdenes Activas</h2>
                 <button
@@ -401,7 +403,7 @@ export default function POSSystem() {
                         loadOrderToCart(order)
                       }
                     }}
-                    className={`p-2 lg:p-3 border rounded-lg cursor-pointer transition-colors min-w-48 lg:min-w-0 touch-manipulation active:scale-95 ${
+                    className={`p-2 lg:p-3 border rounded-lg cursor-pointer transition-colors ${deviceType === 'mobile' ? 'min-w-40' : 'min-w-48 lg:min-w-0'} touch-manipulation active:scale-95 ${
                       selectedOrder?.id === order.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
                     }`}
                   >
@@ -465,7 +467,7 @@ export default function POSSystem() {
             </button>
           )}
           {/* Panel de productos */}
-          <div className={`${showOrdersList ? 'flex-1 lg:w-3/5' : 'flex-1'} p-2 lg:p-4`}>
+          <div className={`${showOrdersList ? (deviceType === 'mobile' ? 'flex-1' : 'flex-1 lg:w-3/5') : 'flex-1'} p-2 lg:p-4`}>
             <div className="mb-3 lg:mb-4 flex flex-col sm:flex-row gap-2 lg:gap-4">
               <input
                 type="text"
@@ -486,7 +488,11 @@ export default function POSSystem() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2 lg:gap-4">
+            <div className={`grid gap-2 lg:gap-4 ${
+              deviceType === 'mobile' ? 'grid-cols-2' : 
+              deviceType === 'tablet' ? 'grid-cols-3' : 
+              'grid-cols-4'
+            }`}>
               {filteredProducts.map(product => (
                 <div
                   key={product.id}
@@ -509,7 +515,7 @@ export default function POSSystem() {
           </div>
 
           {/* Panel del carrito */}
-          <div className="w-full lg:w-96 bg-white border-t lg:border-l lg:border-t-0 p-2 lg:p-4">
+          <div className={`w-full ${deviceType === 'mobile' ? 'border-t' : 'lg:w-96 border-t lg:border-l lg:border-t-0'} bg-white p-2 lg:p-4`}>
             {selectedOrder && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
                 <div className="flex justify-between items-center mb-2">
@@ -540,7 +546,7 @@ export default function POSSystem() {
               )}
             </div>
             
-            <div className="flex-1 overflow-y-auto mb-3 lg:mb-4 max-h-48 lg:max-h-none">
+            <div className={`flex-1 overflow-y-auto mb-3 lg:mb-4 ${deviceType === 'mobile' ? 'max-h-32' : 'max-h-48 lg:max-h-none'}`}>
               {cart.map(item => (
                 <div key={item.id} className="border-b pb-2 mb-2 text-sm lg:text-base">
                   <div className="flex justify-between items-center">
