@@ -239,6 +239,67 @@ export default function FinancialDashboard() {
       .slice(0, 5)
   }, [filteredSales])
 
+  // Cargar productos para análisis de rentabilidad
+  const [products, setProducts] = useState([])
+  
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const q = query(collection(db, 'products'))
+        const snapshot = await getDocs(q)
+        const productsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        setProducts(productsData)
+      } catch (error) {
+        setProducts([])
+      }
+    }
+    loadProducts()
+  }, [])
+
+  // Análisis de rentabilidad por margen
+  const profitabilityAnalysis = useMemo(() => {
+    const productProfitability = {}
+    
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        const product = products.find(p => p.name === item.name)
+        if (product && product.productionCost > 0) {
+          if (!productProfitability[item.name]) {
+            productProfitability[item.name] = {
+              name: item.name,
+              totalRevenue: 0,
+              totalCost: 0,
+              totalProfit: 0,
+              quantity: 0,
+              marginPercent: 0,
+              profitPerUnit: 0
+            }
+          }
+          
+          const revenue = item.subtotal
+          const cost = product.productionCost * item.quantity
+          const profit = revenue - cost
+          
+          productProfitability[item.name].totalRevenue += revenue
+          productProfitability[item.name].totalCost += cost
+          productProfitability[item.name].totalProfit += profit
+          productProfitability[item.name].quantity += item.quantity
+          productProfitability[item.name].marginPercent = ((product.price - product.productionCost) / product.price) * 100
+          productProfitability[item.name].profitPerUnit = product.price - product.productionCost
+        }
+      })
+    })
+    
+    const profitableProducts = Object.values(productProfitability)
+      .sort((a: any, b: any) => b.totalProfit - a.totalProfit)
+      .slice(0, 8)
+    
+    return profitableProducts
+  }, [filteredSales, products])
+
   // Cargar movimientos de inventario
   const [inventoryMovements, setInventoryMovements] = useState([])
   
@@ -702,6 +763,104 @@ export default function FinancialDashboard() {
                 {recurringCustomers.length === 0 && (
                   <p className="text-gray-500 text-center py-8">No hay clientes recurrentes en el período</p>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Análisis de Rentabilidad por Margen */}
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
+            <h3 className="text-lg font-bold mb-4">Rentabilidad por Margen de Productos</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Productos ordenados por ganancia total considerando costo de producción vs precio de venta
+            </p>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico de ganancia total */}
+              <div className="h-80">
+                <h4 className="font-medium mb-2">Ganancia Total por Producto</h4>
+                <Bar
+                  key={`profit-bar-${dateFrom}-${dateTo}`}
+                  data={{
+                    labels: profitabilityAnalysis.map((item: any) => item.name),
+                    datasets: [{
+                      label: 'Ganancia Total (S/)',
+                      data: profitabilityAnalysis.map((item: any) => item.totalProfit),
+                      backgroundColor: profitabilityAnalysis.map((item: any) => 
+                        item.marginPercent > 50 ? '#10B981' :
+                        item.marginPercent > 30 ? '#F59E0B' : '#EF4444'
+                      ),
+                      borderWidth: 1
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => {
+                            const item = profitabilityAnalysis[context.dataIndex]
+                            return [
+                              `Ganancia: S/ ${context.parsed.y.toFixed(2)}`,
+                              `Margen: ${item.marginPercent.toFixed(1)}%`,
+                              `Vendidos: ${item.quantity} unidades`
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      x: {
+                        ticks: {
+                          maxRotation: 45,
+                          minRotation: 45
+                        }
+                      },
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: (value) => `S/ ${value}`
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Tabla de detalles */}
+              <div className="overflow-y-auto max-h-80">
+                <h4 className="font-medium mb-2">Detalle de Rentabilidad</h4>
+                <div className="space-y-2">
+                  {profitabilityAnalysis.map((item: any, index) => (
+                    <div key={index} className="p-3 border rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-medium text-sm">{item.name}</h5>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          item.marginPercent > 50 ? 'bg-green-100 text-green-800' :
+                          item.marginPercent > 30 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {item.marginPercent.toFixed(1)}% margen
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                        <div>Vendidos: {item.quantity}</div>
+                        <div>Ingresos: S/ {item.totalRevenue.toFixed(2)}</div>
+                        <div>Costos: S/ {item.totalCost.toFixed(2)}</div>
+                        <div className="font-bold text-green-600">Ganancia: S/ {item.totalProfit.toFixed(2)}</div>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        Ganancia por unidad: S/ {item.profitPerUnit.toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                  {profitabilityAnalysis.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">
+                      No hay productos con costo de producción definido
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

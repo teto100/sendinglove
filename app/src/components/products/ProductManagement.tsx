@@ -22,7 +22,8 @@ export default function ProductManagement() {
     description: '',
     price: 0,
     sku: '', // Se autogenera, no se usa
-    categoryId: ''
+    categoryId: '',
+    productionCost: 0
   })
   const [showCategoryForm, setShowCategoryForm] = useState(false)
   const [categoryName, setCategoryName] = useState('')
@@ -30,10 +31,12 @@ export default function ProductManagement() {
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
   const [editCategoryData, setEditCategoryData] = useState({ name: '', description: '' })
   const [showEditForm, setShowEditForm] = useState(false)
-  const [editProductData, setEditProductData] = useState({ id: '', name: '', description: '', price: 0, categoryId: '', currentImageUrl: '', imageFile: null as File | null })
+  const [editProductData, setEditProductData] = useState({ id: '', name: '', description: '', price: 0, categoryId: '', currentImageUrl: '', imageFile: null as File | null, productionCost: 0 })
   const [showCsvImport, setShowCsvImport] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importResults, setImportResults] = useState<{ success: number, errors: string[] } | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
 
 
 
@@ -51,7 +54,7 @@ export default function ProductManagement() {
         metadata: { sku: result.sku, price: formData.price }
       })
       setShowForm(false)
-      setFormData({ name: '', description: '', price: 0, sku: '', categoryId: '' })
+      setFormData({ name: '', description: '', price: 0, sku: '', categoryId: '', productionCost: 0 })
       window.location.reload()
     } else {
       alert('Error: ' + result.error)
@@ -83,7 +86,8 @@ export default function ProductManagement() {
       price: product.price,
       categoryId: product.categoryId,
       currentImageUrl: product.imageUrl || '',
-      imageFile: null
+      imageFile: null,
+      productionCost: product.productionCost || 0
     })
     setShowEditForm(true)
   }
@@ -96,7 +100,8 @@ export default function ProductManagement() {
       name: editProductData.name,
       description: editProductData.description,
       price: editProductData.price,
-      categoryId: editProductData.categoryId
+      categoryId: editProductData.categoryId,
+      productionCost: editProductData.productionCost
     }
     
     // Si hay nueva imagen, usar nombre de archivo local
@@ -109,7 +114,8 @@ export default function ProductManagement() {
     setOperationLoading(false)
     if (result.success) {
       setShowEditForm(false)
-      window.location.reload()
+      // Forzar actualización directa desde Firebase
+      await forceRefreshFromFirebase()
     } else {
       alert('Error: ' + result.error)
     }
@@ -182,7 +188,12 @@ export default function ProductManagement() {
             <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Gestión de Productos</h1>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={forceRefreshFromFirebase}
+                onClick={() => {
+                  localStorage.removeItem('cache_products')
+                  localStorage.removeItem('cache_version_products')
+                  forceRefreshFromFirebase()
+                  window.location.reload()
+                }}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
               >
                 🔄 Forzar Actualización
@@ -231,6 +242,37 @@ export default function ProductManagement() {
             </div>
           </div>
 
+          {/* Filtros */}
+          <div className="bg-white p-4 rounded-lg shadow mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Buscar por nombre</label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Buscar productos..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filtrar por categoría</label>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           {showForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-xl">
@@ -267,6 +309,23 @@ export default function ProductManagement() {
                       placeholder="0.00"
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Costo de Producción (S/)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.productionCost || ''}
+                      onChange={(e) => setFormData({...formData, productionCost: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                      placeholder="0.00"
+                    />
+                    {formData.price > 0 && formData.productionCost > 0 && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Margen de ganancia: {(((formData.price - formData.productionCost) / formData.price) * 100).toFixed(1)}%
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
@@ -448,6 +507,23 @@ export default function ProductManagement() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Costo de Producción (S/)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editProductData.productionCost || ''}
+                      onChange={(e) => setEditProductData({...editProductData, productionCost: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+                      placeholder="0.00"
+                    />
+                    {editProductData.price > 0 && editProductData.productionCost > 0 && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Margen de ganancia: {(((editProductData.price - editProductData.productionCost) / editProductData.price) * 100).toFixed(1)}%
+                      </p>
+                    )}
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
                     <select
                       value={editProductData.categoryId}
@@ -602,7 +678,13 @@ export default function ProductManagement() {
           <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
             {/* Mobile Cards */}
             <div className="block lg:hidden">
-              {products.map((product) => (
+              {products
+                .filter(product => {
+                  const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  const matchesCategory = !categoryFilter || product.categoryId === categoryFilter
+                  return matchesSearch && matchesCategory
+                })
+                .map((product) => (
                 <div key={product.id} className="border-b border-gray-100 p-4">
                   <div className="flex items-start gap-3 mb-3">
                     <ProductImage
@@ -667,13 +749,21 @@ export default function ProductManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Costo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Margen</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => (
+                {products
+                  .filter(product => {
+                    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    const matchesCategory = !categoryFilter || product.categoryId === categoryFilter
+                    return matchesSearch && matchesCategory
+                  })
+                  .map((product) => (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -692,6 +782,24 @@ export default function ProductManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.sku}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">S/ {product.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      S/ {(product.productionCost || 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {product.price > 0 && product.productionCost > 0 ? (
+                        <span className={`font-medium ${
+                          ((product.price - product.productionCost) / product.price) * 100 > 30 
+                            ? 'text-green-600' 
+                            : ((product.price - product.productionCost) / product.price) * 100 > 15
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}>
+                          {(((product.price - product.productionCost) / product.price) * 100).toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {categories.find(c => c.id === product.categoryId)?.name || 'Sin categoría'}
                     </td>

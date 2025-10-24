@@ -190,14 +190,6 @@ export default function CashClosing() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">Cierre de Caja</h1>
             <div className="flex gap-3 items-center">
-              <button
-                onClick={() => {
-                  alert(`Datos para ${selectedDate} - Revisa la consola (F12)`)
-                }}
-                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-              >
-                Debug
-              </button>
               <input
                 type="date"
                 value={selectedDate}
