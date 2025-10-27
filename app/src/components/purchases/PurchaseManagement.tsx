@@ -148,7 +148,7 @@ export default function PurchaseManagement() {
   }
 
   return (
-    <ProtectedRoute module="inventory">
+    <ProtectedRoute module="purchases">
       <div className="min-h-screen bg-gray-50">
         <Header />
         <LoadingModal isOpen={loading} message="Cargando compras..." />
@@ -165,7 +165,7 @@ export default function PurchaseManagement() {
                 🔄 Forzar Actualización
               </button>
               <PermissionButton
-                module="inventory"
+                module="purchases"
                 permission="create"
                 onClick={() => setShowForm(true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
@@ -668,7 +668,11 @@ export default function PurchaseManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {purchases.map((purchase) => (
+                {purchases.sort((a, b) => {
+                  const dateA = a.purchaseDate?.toDate ? a.purchaseDate.toDate() : new Date(a.purchaseDate)
+                  const dateB = b.purchaseDate?.toDate ? b.purchaseDate.toDate() : new Date(b.purchaseDate)
+                  return dateB.getTime() - dateA.getTime()
+                }).map((purchase) => (
                   <tr key={purchase.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{purchase.productName}</div>
@@ -711,7 +715,7 @@ export default function PurchaseManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-1">
                         <PermissionButton
-                          module="inventory"
+                          module="purchases"
                           permission="update"
                           onClick={() => handleEditPurchase(purchase)}
                           className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
@@ -719,7 +723,7 @@ export default function PurchaseManagement() {
                           Editar
                         </PermissionButton>
                         <PermissionButton
-                          module="inventory"
+                          module="purchases"
                           permission="delete"
                           onClick={() => handleDeletePurchase(purchase.id, purchase.productName)}
                           className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"

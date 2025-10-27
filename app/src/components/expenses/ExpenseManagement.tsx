@@ -8,7 +8,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import PermissionButton from '@/components/ui/PermissionButton'
 import LoadingModal from '@/components/ui/LoadingModal'
 
-const expenseTypes = ['Alquiler', 'Agua', 'Luz', 'Internet', 'Banco', 'Contadora', 'Facturación', 'Sunat + Essalud', 'AFP', 'Otros']
+const expenseTypes = ['Alquiler', 'Agua y Luz', 'Internet', 'Banco', 'Contadora', 'Facturación', 'Sunat + Essalud', 'AFP', 'Gas','Otros']
 
 export default function ExpenseManagement() {
   const { expenses, loading, createExpense, updateExpense, deleteExpense, forceRefreshFromFirebase } = useExpenses()
@@ -76,8 +76,8 @@ export default function ExpenseManagement() {
     
     const updateData = {
       ...editData,
-      paymentDate: new Date(editData.paymentDate),
-      dueDate: new Date(editData.dueDate)
+      paymentDate: new Date(editData.paymentDate + 'T12:00:00'),
+      dueDate: new Date(editData.dueDate + 'T12:00:00')
     }
     delete updateData.id
     
@@ -105,7 +105,7 @@ export default function ExpenseManagement() {
   }
 
   return (
-    <ProtectedRoute module="reports">
+    <ProtectedRoute module="expenses">
       <div className="min-h-screen" style={{backgroundColor: '#F9F7F8'}}>
         <Header />
         <LoadingModal isOpen={loading} message="Cargando gastos..." />
@@ -123,7 +123,7 @@ export default function ExpenseManagement() {
                 🔄 Forzar Actualización
               </button>
               <PermissionButton
-                module="reports"
+                module="expenses"
                 permission="create"
                 onClick={() => setShowForm(true)}
                 className="px-4 py-2 rounded-md hover:opacity-80 font-semibold border-2"
@@ -186,7 +186,11 @@ export default function ExpenseManagement() {
                       <input
                         type="date"
                         value={formData.paymentDate.toISOString().split('T')[0]}
-                        onChange={(e) => setFormData({...formData, paymentDate: new Date(e.target.value)})}
+                        onChange={(e) => {
+                          const now = new Date()
+                          const selectedDate = new Date(e.target.value + 'T' + now.toTimeString().slice(0,8))
+                          setFormData({...formData, paymentDate: selectedDate})
+                        }}
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                         style={{color: '#CF432B'}}
                         required
@@ -197,7 +201,7 @@ export default function ExpenseManagement() {
                       <input
                         type="date"
                         value={formData.dueDate.toISOString().split('T')[0]}
-                        onChange={(e) => setFormData({...formData, dueDate: new Date(e.target.value)})}
+                        onChange={(e) => setFormData({...formData, dueDate: new Date(e.target.value + 'T12:00:00')})}
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                         style={{color: '#CF432B'}}
                         required
@@ -304,7 +308,7 @@ export default function ExpenseManagement() {
                       <label className="block text-sm font-medium mb-1" style={{color: '#4B4C1E'}}>Fecha de Pago</label>
                       <input
                         type="date"
-                        value={editData.paymentDate}
+                        value={editData.paymentDate.split('T')[0]}
                         onChange={(e) => setEditData({...editData, paymentDate: e.target.value})}
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                         style={{color: '#CF432B'}}
@@ -384,7 +388,11 @@ export default function ExpenseManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {expenses.map((expense) => (
+                {expenses.sort((a, b) => {
+                  const dateA = a.paymentDate?.toDate ? a.paymentDate.toDate() : new Date(a.paymentDate)
+                  const dateB = b.paymentDate?.toDate ? b.paymentDate.toDate() : new Date(b.paymentDate)
+                  return dateB.getTime() - dateA.getTime()
+                }).map((expense) => (
                   <tr key={expense.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium" style={{color: '#CF432B'}}>
@@ -425,7 +433,7 @@ export default function ExpenseManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-1">
                         <PermissionButton
-                          module="reports"
+                          module="expenses"
                           permission="update"
                           onClick={() => handleEditExpense(expense)}
                           className="px-2 py-1 rounded text-xs hover:opacity-80"
@@ -434,7 +442,7 @@ export default function ExpenseManagement() {
                           Editar
                         </PermissionButton>
                         <PermissionButton
-                          module="reports"
+                          module="expenses"
                           permission="delete"
                           onClick={() => handleDeleteExpense(expense.id, expense.type === 'Otros' ? expense.customType || 'Otros' : expense.type)}
                           className="px-2 py-1 rounded text-xs hover:opacity-80"

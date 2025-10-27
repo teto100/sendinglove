@@ -137,24 +137,35 @@ export default function FinancialDashboard() {
   // Ventas por día
   const dailySales = useMemo(() => {
     try {
+      const from = new Date(dateFrom)
+      const to = new Date(dateTo)
       const salesByDay = {}
+      
+      // Crear todas las fechas en el rango
+      const currentDate = new Date(from)
+      while (currentDate <= to) {
+        const dateKey = currentDate.toISOString().split('T')[0]
+        const displayDate = currentDate.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })
+        salesByDay[dateKey] = { date: displayDate, sales: 0, count: 0 }
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+      
+      // Llenar con datos reales
       filteredSales.forEach(sale => {
         const saleDate = new Date(sale.createdAt)
         const dateKey = saleDate.toISOString().split('T')[0]
-        const displayDate = saleDate.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })
         
-        if (!salesByDay[dateKey]) {
-          salesByDay[dateKey] = { date: displayDate, sales: 0, count: 0 }
+        if (salesByDay[dateKey]) {
+          salesByDay[dateKey].sales += sale.total
+          salesByDay[dateKey].count += 1
         }
-        salesByDay[dateKey].sales += sale.total
-        salesByDay[dateKey].count += 1
       })
-      const result = Object.values(salesByDay).slice(-7)
-      return result
+      
+      return Object.values(salesByDay)
     } catch (error) {
       return []
     }
-  }, [filteredSales])
+  }, [filteredSales, dateFrom, dateTo])
 
   // Análisis de días
   const dayAnalysis = useMemo(() => {
@@ -236,7 +247,7 @@ export default function FinancialDashboard() {
     })
     return Object.values(productSales)
       .sort((a: any, b: any) => b.revenue - a.revenue)
-      .slice(0, 5)
+      .slice(0, 10)
   }, [filteredSales])
 
   // Cargar productos para análisis de rentabilidad
@@ -261,15 +272,32 @@ export default function FinancialDashboard() {
 
   // Análisis de rentabilidad por margen
   const profitabilityAnalysis = useMemo(() => {
+    const productsWithCost = products.filter(p => p.productionCost > 0)
+    
     const productProfitability = {}
+    const itemsNotFound = new Set()
+    const itemsWithoutCost = new Set()
     
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
-        const product = products.find(p => p.name === item.name)
-        if (product && product.productionCost > 0) {
-          if (!productProfitability[item.name]) {
-            productProfitability[item.name] = {
-              name: item.name,
+        // Limpiar nombre del producto (eliminar comillas extra y espacios)
+        const cleanItemName = item.name.replace(/^"+|"+$/g, '').trim()
+        
+        // Búsqueda flexible por nombre (sin distinguir mayúsculas/minúsculas y espacios)
+        const product = products.find(p => 
+          p.name.toLowerCase().replace(/\s+/g, ' ').trim() === 
+          cleanItemName.toLowerCase().replace(/\s+/g, ' ').trim()
+        )
+        
+        if (!product) {
+          itemsNotFound.add(cleanItemName)
+        } else if (!product.productionCost || product.productionCost <= 0) {
+          itemsWithoutCost.add(cleanItemName)
+        } else {
+          
+          if (!productProfitability[cleanItemName]) {
+            productProfitability[cleanItemName] = {
+              name: cleanItemName,
               totalRevenue: 0,
               totalCost: 0,
               totalProfit: 0,
@@ -283,19 +311,22 @@ export default function FinancialDashboard() {
           const cost = product.productionCost * item.quantity
           const profit = revenue - cost
           
-          productProfitability[item.name].totalRevenue += revenue
-          productProfitability[item.name].totalCost += cost
-          productProfitability[item.name].totalProfit += profit
-          productProfitability[item.name].quantity += item.quantity
-          productProfitability[item.name].marginPercent = ((product.price - product.productionCost) / product.price) * 100
-          productProfitability[item.name].profitPerUnit = product.price - product.productionCost
+          productProfitability[cleanItemName].totalRevenue += revenue
+          productProfitability[cleanItemName].totalCost += cost
+          productProfitability[cleanItemName].totalProfit += profit
+          productProfitability[cleanItemName].quantity += item.quantity
+          productProfitability[cleanItemName].marginPercent = ((product.price - product.productionCost) / product.price) * 100
+          productProfitability[cleanItemName].profitPerUnit = product.price - product.productionCost
+          
         }
       })
     })
     
+    
     const profitableProducts = Object.values(productProfitability)
       .sort((a: any, b: any) => b.totalProfit - a.totalProfit)
-      .slice(0, 8)
+      .slice(0, 10)
+    
     
     return profitableProducts
   }, [filteredSales, products])
@@ -410,31 +441,32 @@ export default function FinancialDashboard() {
   // Clientes recurrentes
   const recurringCustomers = useMemo(() => {
     const customerPurchases = {}
+    
     filteredSales.forEach(sale => {
-      if (sale.customerId) {
-        if (!customerPurchases[sale.customerId]) {
-          customerPurchases[sale.customerId] = { count: 0, total: 0 }
+      // Usar customerName si existe, sino customerId
+      const customerKey = sale.customerName?.trim() || sale.customerId
+      
+      if (customerKey) {
+        if (!customerPurchases[customerKey]) {
+          customerPurchases[customerKey] = { count: 0, total: 0, name: sale.customerName || 'Cliente desconocido' }
         }
-        customerPurchases[sale.customerId].count += 1
-        customerPurchases[sale.customerId].total += sale.total
+        customerPurchases[customerKey].count += 1
+        customerPurchases[customerKey].total += sale.total
       }
     })
     
-    const recurring = Object.entries(customerPurchases)
-      .filter(([_, data]: [string, any]) => data.count > 1)
-      .map(([customerId, data]: [string, any]) => {
-        const customer = customers.find(c => c.id === customerId)
-        return {
-          name: customer?.name || 'Cliente desconocido',
-          purchases: data.count,
-          total: data.total
-        }
-      })
+    const recurring = Object.values(customerPurchases)
+      .filter((data: any) => data.count > 1)
+      .map((data: any) => ({
+        name: data.name,
+        purchases: data.count,
+        total: data.total
+      }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
     
     return recurring
-  }, [filteredSales, customers])
+  }, [filteredSales])
 
   return (
     <ProtectedRoute module="reports">
@@ -498,7 +530,7 @@ export default function FinancialDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Tendencia de ventas */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-bold mb-4">Tendencia de Ventas (Últimos 7 días)</h3>
+              <h3 className="text-lg font-bold mb-4">Tendencia de Ventas ({dateFrom} - {dateTo})</h3>
               <div className="h-80">
                 <Line
                   key={`line-${dateFrom}-${dateTo}`}
@@ -585,10 +617,10 @@ export default function FinancialDashboard() {
                 <Bar
                   key={`bar1-${dateFrom}-${dateTo}`}
                   data={{
-                    labels: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 5).map((item: any) => item.name),
+                    labels: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 10).map((item: any) => item.name),
                     datasets: [{
                       label: 'Cantidad',
-                      data: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 5).map((item: any) => item.quantity),
+                      data: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 10).map((item: any) => item.quantity),
                       backgroundColor: '#3B82F6',
                       borderColor: '#1D4ED8',
                       borderWidth: 1
@@ -626,7 +658,7 @@ export default function FinancialDashboard() {
 
             {/* Productos más rentables por ingresos */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-bold mb-4">Productos Más Rentables</h3>
+              <h3 className="text-lg font-bold mb-4">Productos con mayor volumen</h3>
               <div className="h-80">
                 <Bar
                   key={`bar2-${dateFrom}-${dateTo}`}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAllSales } from '@/hooks/useAllSales'
+import { useSales } from '@/hooks/useSales'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCustomers } from '@/hooks/useCustomers'
@@ -12,6 +13,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 export default function OrdersList() {
   const { sales, loading, currentPage, hasMore, deleteSale, updateSale, goToPage } = useAllSales()
+  const { createSale } = useSales()
   const { hasPermission } = usePermissions()
   const { user } = useCurrentUser()
   const { customers, searchCustomers, createCustomer } = useCustomers()
@@ -116,21 +118,32 @@ export default function OrdersList() {
     if (!csvFile) return
     
     setIsProcessing(true)
+    const startTime = Date.now()
+    
+    
     const text = await csvFile.text()
     const lines = text.split('\n').filter(line => line.trim())
     
+    
     let success = 0
     const errors: string[] = []
+    const processedItems: any[] = []
+    
     
     for (let i = 1; i < lines.length; i++) {
+      const progress = ((i / (lines.length - 1)) * 100).toFixed(1)
+      const lineNumber = i + 1
+      
+      
       try {
         const values = lines[i].split(',')
         
         // Parse items (formato: "producto1:precio1:cantidad1;producto2:precio2:cantidad2")
         const itemsStr = values[0]?.trim()
+        
         const items = itemsStr ? itemsStr.split(';').map((item, idx) => {
           const [name, price, quantity] = item.split(':')
-          return {
+          const parsedItem = {
             id: `item_${i}_${idx}`,
             productId: `prod_${i}_${idx}`,
             name: name?.trim() || '',
@@ -139,7 +152,9 @@ export default function OrdersList() {
             subtotal: (parseFloat(price) || 0) * (parseInt(quantity) || 1),
             extras: []
           }
+          return parsedItem
         }) : []
+        
         
         const subtotal = parseFloat(values[1]?.trim() || '0')
         const discount = parseFloat(values[2]?.trim() || '0')
@@ -155,37 +170,75 @@ export default function OrdersList() {
         const fecha = values[12]?.trim()
         const hora = values[13]?.trim()
         
-        // Crear fecha y hora
+        
+        // Crear fecha y hora - SIEMPRE usar la fecha del CSV si existe
         let createdAt = new Date()
-        if (fecha || hora) {
-          const dateStr = fecha || new Date().toISOString().split('T')[0]
-          const timeStr = hora || '00:00:00'
-          createdAt = new Date(`${dateStr}T${timeStr}`)
+        if (fecha && fecha.trim()) {
+          const dateStr = fecha.trim()
+          const timeStr = (hora && hora.trim()) ? hora.trim() : '12:00:00'
+          const dateTimeStr = `${dateStr}T${timeStr}`
+          
+          createdAt = new Date(dateTimeStr)
           
           if (isNaN(createdAt.getTime())) {
+            console.error('❌ Fecha inválida:', dateTimeStr)
             errors.push(`Línea ${i + 1}: Fecha u hora inválida`)
             continue
           }
+        } else {
         }
         
+        // Validaciones
+        
         if (!items.length || !orderType || !paymentStatus || !orderStatus) {
+          console.error('❌ Datos obligatorios faltantes:', { 
+            items: items.length, 
+            orderType, 
+            paymentStatus, 
+            orderStatus 
+          })
           errors.push(`Línea ${i + 1}: Datos obligatorios faltantes (items, orderType, paymentStatus, orderStatus)`)
           continue
         }
         
         if (!['Mesa', 'Delivery Rappi', 'Delivery Interno'].includes(orderType)) {
+          console.error('❌ orderType inválido:', orderType)
           errors.push(`Línea ${i + 1}: orderType inválido (debe ser Mesa, Delivery Rappi o Delivery Interno)`)
           continue
         }
         
         if (!['SIN PAGAR', 'Pagado'].includes(paymentStatus)) {
+          console.error('❌ paymentStatus inválido:', paymentStatus)
           errors.push(`Línea ${i + 1}: paymentStatus inválido (debe ser SIN PAGAR o Pagado)`)
           continue
         }
         
         if (!['Abierta', 'Cerrada'].includes(orderStatus)) {
+          console.error('❌ orderStatus inválido:', orderStatus)
           errors.push(`Línea ${i + 1}: orderStatus inválido (debe ser Abierta o Cerrada)`)
           continue
+        }
+        
+        // Crear cliente si no existe
+        if (customerName && customerName.trim() && user) {
+          
+          // Buscar directamente en Firebase en lugar del cache
+          const existingCustomers = await searchCustomers(customerName)
+          const existingCustomer = existingCustomers.find(c => c.name.toLowerCase() === customerName.toLowerCase())
+          
+          if (!existingCustomer) {
+            try {
+              const newCustomerId = await createCustomer({
+                name: customerName,
+                phone: customerPhone || ''
+              })
+            } catch (error: any) {
+              console.error('❌ 🚫 ERROR CREANDO CLIENTE:', error.message)
+            }
+          } else {
+          }
+        } else if (customerName && customerName.trim() && !user) {
+          console.warn('⚠️ Usuario no autenticado, saltando creación de cliente:', customerName)
         }
         
         const saleData = {
@@ -201,16 +254,54 @@ export default function OrdersList() {
           customerPhone: customerPhone || undefined,
           tableNumber: tableNumber || undefined,
           deliveryAddress: deliveryAddress || undefined,
-          createdAt
+          createdAt: createdAt
         }
         
-        // Crear la venta usando el hook
-        const result = await updateSale('new', saleData)
+        
+        const saveStartTime = Date.now()
+        const result = await createSale(saleData)
+        const saveEndTime = Date.now()
+        
         success++
-      } catch (error) {
+        processedItems.push({
+          lineNumber: i,
+          customerName: customerName || 'Sin nombre',
+          total,
+          items: items.length,
+          saveTime: saveEndTime - saveStartTime,
+          createdAt: createdAt.toLocaleString()
+        })
+        
+        
+        // Delay para evitar sobrecargar Firebase
+        await new Promise(resolve => setTimeout(resolve, 100))
+      } catch (error: any) {
+        console.error('Error details:', error)
+        console.error('Error message:', error.message)
+        console.error('Error stack:', error.stack)
+        
         errors.push(`Línea ${i + 1}: Error procesando datos - ${error.message}`)
       }
     }
+    
+    
+    const endTime = Date.now()
+    const totalTime = endTime - startTime
+    
+    
+    if (processedItems.length > 0) {
+      const avgSaveTime = processedItems.reduce((sum, item) => sum + item.saveTime, 0) / processedItems.length
+      const totalAmount = processedItems.reduce((sum, item) => sum + item.total, 0)
+      const totalItems = processedItems.reduce((sum, item) => sum + item.items, 0)
+      
+    }
+    
+    if (errors.length > 0) {
+      errors.forEach((error, index) => {
+        console.error(`${index + 1}. ${error}`)
+      })
+    }
+    
     
     setImportResults({ success, errors })
     setIsProcessing(false)
@@ -325,7 +416,13 @@ export default function OrdersList() {
                           </div>
                           
                           <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
-                            <div>Productos: {order.items.length}</div>
+                            <div className="text-xs">
+                              {order.items.map((item, idx) => (
+                                <div key={idx}>
+                                  {item.name}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                                </div>
+                              ))}
+                            </div>
                             <div>Cliente: {order.customerName || '-'}</div>
                             <div>Pago: {order.paymentMethod || order.paymentMethods?.[0]?.method || '-'}</div>
                             <div>Mesa: {order.tableNumber || '-'}</div>
@@ -363,6 +460,7 @@ export default function OrdersList() {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Productos</th>
@@ -378,6 +476,9 @@ export default function OrdersList() {
                         <tbody className="bg-white divide-y divide-gray-200">
                           {sales.map((order) => (
                             <tr key={order.id} className={`${order.orderStatus === 'Eliminado' ? 'bg-gray-200 opacity-60' : 'hover:bg-gray-50'}`}>
+                              <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                {order.id}
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <div>{order.createdAt.toLocaleDateString()}</div>
                                 <div className="text-xs text-gray-500">{order.createdAt.toLocaleTimeString()}</div>
@@ -385,8 +486,14 @@ export default function OrdersList() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {order.orderType}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {order.items.length}
+                              <td className="px-6 py-4 text-sm text-gray-900">
+                                <div className="max-w-xs">
+                                  {order.items.map((item, idx) => (
+                                    <div key={idx} className="text-xs">
+                                      {item.name}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                                    </div>
+                                  ))}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 S/ {order.total.toFixed(2)}
@@ -643,7 +750,11 @@ export default function OrdersList() {
                 <p className="text-sm text-blue-700 mb-2">items,subtotal,discount,total,orderType,paymentStatus,orderStatus,paymentMethod,customerName,customerPhone,tableNumber,deliveryAddress,fecha,hora</p>
                 <p className="text-xs text-blue-600 mb-2">Items formato: "producto1:precio1:cantidad1;producto2:precio2:cantidad2"</p>
                 <p className="text-xs text-blue-600 mb-2">Fecha formato: YYYY-MM-DD (opcional), Hora formato: HH:MM:SS (opcional)</p>
-                <p className="text-xs text-blue-600">Ejemplo: "Hamburguesa:15.50:2;Coca Cola:3.00:1",31.00,0,31.00,Mesa,Pagado,Cerrada,Yape,Juan Pérez,987654321,5,,2024-01-15,14:30:00</p>
+                <p className="text-xs text-blue-600 mb-3">Ejemplo: "Hamburguesa:15.50:2;Coca Cola:3.00:1",31.00,0,31.00,Mesa,Pagado,Cerrada,Yape,Juan Pérez,987654321,5,,2024-01-15,14:30:00</p>
+                
+                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <p className="text-xs text-yellow-800">💡 <strong>Logs detallados:</strong> Durante la importación, revisa la consola del navegador (F12 → Console) para ver logs completos del proceso, incluyendo validaciones, guardado en Firebase y procesamiento de pagos.</p>
+                </div>
               </div>
               
               <div className="space-y-4">
@@ -656,13 +767,29 @@ export default function OrdersList() {
                 
                 {importResults && (
                   <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-green-600">✅ {importResults.success} órdenes importadas</p>
+                    <div className="mb-3">
+                      <p className="text-green-600 font-semibold">✅ {importResults.success} órdenes importadas exitosamente</p>
+                      {importResults.errors.length > 0 && (
+                        <p className="text-red-600 font-semibold">❌ {importResults.errors.length} errores encontrados</p>
+                      )}
+                    </div>
+                    
+                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                      <p className="text-sm text-blue-800 font-medium mb-2">📊 Para ver logs detallados:</p>
+                      <ol className="text-xs text-blue-700 space-y-1">
+                        <li>1. Abre las Herramientas de Desarrollador (F12)</li>
+                        <li>2. Ve a la pestaña "Console"</li>
+                        <li>3. Busca los grupos de logs con emojis 🚀 📝 💾</li>
+                        <li>4. Expande los grupos para ver detalles completos</li>
+                      </ol>
+                    </div>
+                    
                     {importResults.errors.length > 0 && (
                       <div className="mt-2">
-                        <p className="text-red-600">❌ {importResults.errors.length} errores:</p>
-                        <ul className="text-xs text-red-500 mt-1 max-h-40 overflow-y-auto">
+                        <p className="text-red-600 font-medium mb-2">Errores detallados:</p>
+                        <ul className="text-xs text-red-500 mt-1 max-h-40 overflow-y-auto bg-red-50 p-2 rounded border">
                           {importResults.errors.map((error, idx) => (
-                            <li key={idx}>• {error}</li>
+                            <li key={idx} className="mb-1">• {error}</li>
                           ))}
                         </ul>
                       </div>
@@ -674,9 +801,16 @@ export default function OrdersList() {
                   <button
                     onClick={handleCsvImport}
                     disabled={!csvFile || isProcessing}
-                    className="flex-1 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400"
+                    className="flex-1 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-400 flex items-center justify-center"
                   >
-                    {isProcessing ? 'Importando...' : 'Importar'}
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Importando... (Ver consola F12)
+                      </>
+                    ) : (
+                      'Importar'
+                    )}
                   </button>
                   <button
                     onClick={() => {

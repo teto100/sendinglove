@@ -43,7 +43,6 @@ export function useUsers() {
         throw new Error(result.error || 'Error al crear usuario')
       }
       
-      console.log('Creating Firestore document with UID:', result.uid)
       
       // Crear documento en Firestore
       await setDoc(doc(db, 'users', result.uid), {
@@ -56,7 +55,6 @@ export function useUsers() {
         lastLogin: null
       })
       
-      console.log('Firestore document created successfully')
       
       await VersionManager.updateVersion('users')
       return { success: true, uid: result.uid }

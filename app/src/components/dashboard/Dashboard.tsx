@@ -5,9 +5,10 @@ import Header from '@/components/layout/Header'
 import { usePermissions } from '@/hooks/usePermissions'
 import Link from 'next/link'
 import ActivityLog from '@/components/activities/ActivityLog'
+import LoadingModal from '@/components/ui/LoadingModal'
 
 export default function Dashboard() {
-  const { canAccess } = usePermissions()
+  const { canAccess, loading, userRole } = usePermissions()
 
   const modules = useMemo(() => [
     { id: 'users', name: 'Usuarios', description: 'Gestión de Usuarios', color: 'indigo', icon: '👥', path: '/users' },
@@ -22,13 +23,21 @@ export default function Dashboard() {
     { id: 'purchases', name: 'Compras', description: 'Compras de Almacén', color: 'orange', icon: '🛒', path: '/purchases' },
     { id: 'expenses', name: 'Gastos Fijos', description: 'Gastos Mensuales', color: 'red', icon: '💳', path: '/expenses' },
     { id: 'cash-closing', name: 'Cierre de Caja', description: 'Resumen Diario', color: 'gray', icon: '📊', path: '/cash-closing' },
-    { id: 'accounts', name: 'Cuentas', description: 'Gestión de Cuentas', color: 'emerald', icon: '🏦', path: '/accounts' }
+    { id: 'accounts', name: 'Cuentas', description: 'Gestión de Cuentas', color: 'emerald', icon: '🏦', path: '/accounts' },
+    { id: 'kitchen', name: 'Cocina', description: 'Insumos y Recetas', color: 'orange', icon: '🍳', path: '/kitchen' }
   ], [])
 
-  const accessibleModules = useMemo(() => 
-    modules.filter(module => canAccess(module.id as any)), 
-    [modules, canAccess]
-  )
+  const accessibleModules = useMemo(() => {
+    if (loading || !userRole) {
+      return []
+    }
+    
+    return modules.filter(module => canAccess(module.id as any))
+  }, [modules, canAccess, loading, userRole])
+
+  if (loading) {
+    return <LoadingModal isOpen={true} message="Cargando permisos..." />
+  }
 
   return (
     <div className="min-h-screen" style={{backgroundColor: '#F9F7F8'}}>

@@ -19,15 +19,18 @@ export function useExpenses() {
 
     try {
       setOperationLoading(true)
+      const now = new Date()
+      
       const docRef = await addDoc(collection(db, 'expenses'), {
         ...expenseData,
-        createdAt: new Date(),
+        createdAt: now,
         createdBy: firebaseUser.uid,
         createdByName: firebaseUser.email || 'Usuario',
-        updatedAt: new Date(),
+        updatedAt: now,
         updatedBy: firebaseUser.uid,
         updatedByName: firebaseUser.email || 'Usuario'
       })
+      
       
       // Procesar pago en cuentas
       if (expenseData.paymentMethod) {

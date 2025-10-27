@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Customer, CreateCustomerData } from '@/types/customer'
@@ -24,6 +24,7 @@ export function useCustomers() {
         updatedAt: new Date()
       })
       await VersionManager.updateVersion('customers')
+      await refresh()
       return docRef.id
     } finally {
       setOperationLoading(false)

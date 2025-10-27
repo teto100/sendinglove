@@ -23,8 +23,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Creating user:', { email, name })
-    console.log('Firebase config check:', {
       projectId: process.env.FIREBASE_PROJECT_ID,
       hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
       hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY
@@ -38,7 +36,6 @@ export async function POST(request: NextRequest) {
       displayName: name,
     })
 
-    console.log('User created successfully:', userRecord.uid)
 
     return NextResponse.json({ 
       success: true, 

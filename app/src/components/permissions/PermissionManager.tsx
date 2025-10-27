@@ -21,7 +21,8 @@ const moduleLabels: Record<Module, string> = {
   orders: 'Pedidos',
   'cash-closing': 'Cierre de Caja',
   permissions: 'Permisos',
-  accounts: 'Gestión de Cuentas'
+  accounts: 'Gestión de Cuentas',
+  kitchen: 'Cocina'
 }
 
 const permissionLabels: Record<Permission, string> = {
@@ -100,7 +101,7 @@ export default function PermissionManager() {
   }
 
   return (
-    <ProtectedRoute module="users">
+    <ProtectedRoute module="permissions">
       <div className="min-h-screen bg-gray-50">
         <Header />
         

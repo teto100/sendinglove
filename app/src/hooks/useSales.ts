@@ -39,37 +39,67 @@ export function useSales() {
   }, [])
 
   const createSale = async (saleData: CreateSaleData): Promise<string> => {
+    
     if (!firebaseUser?.uid) {
+      console.error('❌ Usuario no autenticado')
       throw new Error('Usuario no autenticado')
     }
+    
 
     const cleanData = Object.fromEntries(
       Object.entries(saleData).filter(([_, value]) => value !== undefined)
     )
+    
 
-    const docRef = await addDoc(collection(db, 'sales'), {
+    const finalData = {
       ...cleanData,
-      createdAt: new Date(),
+      createdAt: cleanData.createdAt || new Date(), // Usar fecha del CSV si existe
       createdBy: firebaseUser.uid,
       createdByName: firebaseUser.email || 'Usuario',
       updatedAt: new Date(),
       updatedBy: firebaseUser.uid,
       updatedByName: firebaseUser.email || 'Usuario'
-    })
-
-    // Procesar pagos en cuentas si la venta se crea como Pagada
-    if (saleData.paymentStatus === 'Pagado' && saleData.paymentMethods) {
-      for (const payment of saleData.paymentMethods) {
-        await processPayment(
-          payment.method,
-          payment.amount,
-          payment.method === 'Transferencia Rappi' ? `Venta Rappi #${docRef.id.slice(-6)} - Pago miércoles` : `Venta #${docRef.id.slice(-6)}`,
-          docRef.id
-        )
-      }
     }
+    
+    
+    
+    try {
+      const saveStartTime = Date.now()
+      
+      const docRef = await addDoc(collection(db, 'sales'), finalData)
+      
+      const saveEndTime = Date.now()
 
-    return docRef.id
+      // Procesar pagos en cuentas si la venta se crea como Pagada
+      if (saleData.paymentStatus === 'Pagado' && saleData.paymentMethods) {
+        
+        for (const [index, payment] of saleData.paymentMethods.entries()) {
+          
+          const description = payment.method === 'Transferencia Rappi' 
+            ? `Venta Rappi #${docRef.id.slice(-6)} - Pago miércoles` 
+            : `Venta #${docRef.id.slice(-6)}`
+          
+          
+          try {
+            await processPayment(
+              payment.method,
+              payment.amount,
+              description,
+              docRef.id
+            )
+          } catch (paymentError) {
+            console.error(`❌ Error procesando pago ${index + 1}:`, paymentError)
+          }
+        }
+      } else {
+      }
+      
+      return docRef.id
+      
+    } catch (error) {
+      console.error('❌ Error guardando en Firebase:', error)
+      throw error
+    }
   }
 
   const updateSale = async (id: string, updates: Partial<Sale>) => {

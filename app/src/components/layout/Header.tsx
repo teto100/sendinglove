@@ -8,8 +8,9 @@ import { useActivityLogger } from '@/hooks/useActivityLogger'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCacheStatus } from '@/hooks/useCacheStatus'
 import { useDeviceType } from '@/hooks/useDeviceType'
+import { usePermissions } from '@/hooks/usePermissions'
 import { colors } from '@/styles/colors'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 
 export default function Header() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function Header() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showSidebar, setShowSidebar] = useState(false)
   const deviceType = useDeviceType()
+  const { canAccess } = usePermissions()
 
   useEffect(() => {
     setMounted(true)
@@ -45,22 +47,28 @@ export default function Header() {
     }
   }, [])
 
-  const menuItems = [
-    { name: 'Dashboard', href: '/', icon: '📊' },
-    { name: 'POS/Ventas', href: '/sales', icon: '🛒' },
-    { name: 'Productos', href: '/products', icon: '📦' },
-    { name: 'Inventario', href: '/inventory', icon: '📋' },
-    { name: 'Pedidos', href: '/orders', icon: '📝' },
-    { name: 'Reportes', href: '/reports', icon: '📈' },
-    { name: 'Usuarios', href: '/users', icon: '👥' },
-    { name: 'Proveedores', href: '/suppliers', icon: '🏢' },
-    { name: 'Gastos', href: '/expenses', icon: '💰' },
-    { name: 'Cuentas', href: '/accounts', icon: '💳' },
-    { name: 'Clientes', href: '/customers', icon: '👤' },
-    { name: 'Compras', href: '/purchases', icon: '🛍️' },
-    { name: 'Cierre Caja', href: '/cash-closing', icon: '💵' },
-    { name: 'Permisos', href: '/permissions', icon: '🔐' }
+  const allMenuItems = [
+    { name: 'Dashboard', href: '/', icon: '📊', module: null },
+    { name: 'POS/Ventas', href: '/sales', icon: '🛒', module: 'sales' },
+    { name: 'Productos', href: '/products', icon: '📦', module: 'products' },
+    { name: 'Inventario', href: '/inventory', icon: '📋', module: 'inventory' },
+    { name: 'Pedidos', href: '/orders', icon: '📝', module: 'orders' },
+    { name: 'Reportes', href: '/reports', icon: '📈', module: 'reports' },
+    { name: 'Usuarios', href: '/users', icon: '👥', module: 'users' },
+    { name: 'Proveedores', href: '/suppliers', icon: '🏢', module: 'suppliers' },
+    { name: 'Gastos', href: '/expenses', icon: '💰', module: 'expenses' },
+    { name: 'Cuentas', href: '/accounts', icon: '💳', module: 'accounts' },
+    { name: 'Clientes', href: '/customers', icon: '👤', module: 'customers' },
+    { name: 'Compras', href: '/purchases', icon: '🛍️', module: 'purchases' },
+    { name: 'Cierre Caja', href: '/cash-closing', icon: '💵', module: 'cash-closing' },
+    { name: 'Cocina', href: '/kitchen', icon: '🍳', module: 'kitchen' },
+    { name: 'Permisos', href: '/permissions', icon: '🔐', module: 'permissions' }
   ]
+  
+  const menuItems = useMemo(() => 
+    allMenuItems.filter(item => !item.module || canAccess(item.module as any)), 
+    [canAccess]
+  )
   
   const handleLogout = async () => {
     if (isLoggingOut) return

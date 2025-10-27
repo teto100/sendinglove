@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useProducts } from '@/hooks/useProducts'
 import { useCategories } from '@/hooks/useCategories'
 import { CreateProductData } from '@/types/product'
@@ -21,10 +21,14 @@ export default function ProductManagement() {
     name: '',
     description: '',
     price: 0,
-    sku: '', // Se autogenera, no se usa
+    sku: '',
     categoryId: '',
     productionCost: 0
   })
+  
+  const handleFormChange = useCallback((field: keyof CreateProductData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }, [])
   const [showCategoryForm, setShowCategoryForm] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
@@ -250,7 +254,7 @@ export default function ProductManagement() {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={useCallback((e) => setSearchTerm(e.target.value), [])}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Buscar productos..."
                 />
@@ -259,7 +263,7 @@ export default function ProductManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Filtrar por categoría</label>
                 <select
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={useCallback((e) => setCategoryFilter(e.target.value), [])}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todas las categorías</option>
@@ -283,7 +287,7 @@ export default function ProductManagement() {
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      onChange={(e) => handleFormChange('name', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                       required
                     />
@@ -292,7 +296,7 @@ export default function ProductManagement() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      onChange={(e) => handleFormChange('description', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                       rows={3}
                     />
@@ -304,7 +308,7 @@ export default function ProductManagement() {
                       step="0.01"
                       min="0"
                       value={formData.price || ''}
-                      onChange={(e) => setFormData({...formData, price: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                      onChange={(e) => handleFormChange('price', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                       className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                       placeholder="0.00"
                       required
@@ -317,7 +321,7 @@ export default function ProductManagement() {
                       step="0.01"
                       min="0"
                       value={formData.productionCost || ''}
-                      onChange={(e) => setFormData({...formData, productionCost: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                      onChange={(e) => handleFormChange('productionCost', e.target.value === '' ? 0 : parseFloat(e.target.value))}
                       className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                       placeholder="0.00"
                     />
@@ -337,7 +341,7 @@ export default function ProductManagement() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
                     <select
                       value={formData.categoryId}
-                      onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
+                      onChange={(e) => handleFormChange('categoryId', e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                       required
                     >
@@ -354,7 +358,7 @@ export default function ProductManagement() {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => setFormData({...formData, imageFile: e.target.files?.[0]})}
+                      onChange={(e) => handleFormChange('imageFile', e.target.files?.[0])}
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
                     />
                   </div>
@@ -678,12 +682,12 @@ export default function ProductManagement() {
           <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
             {/* Mobile Cards */}
             <div className="block lg:hidden">
-              {products
+              {useMemo(() => products
                 .filter(product => {
                   const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
                   const matchesCategory = !categoryFilter || product.categoryId === categoryFilter
                   return matchesSearch && matchesCategory
-                })
+                }), [products, searchTerm, categoryFilter])
                 .map((product) => (
                 <div key={product.id} className="border-b border-gray-100 p-4">
                   <div className="flex items-start gap-3 mb-3">
@@ -757,12 +761,12 @@ export default function ProductManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products
+                {useMemo(() => products
                   .filter(product => {
                     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
                     const matchesCategory = !categoryFilter || product.categoryId === categoryFilter
                     return matchesSearch && matchesCategory
-                  })
+                  }), [products, searchTerm, categoryFilter])
                   .map((product) => (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -180,6 +180,7 @@ export function useAccounts() {
   }
 
   const processPayment = async (paymentMethod: string, amount: number, description: string, sourceId?: string) => {
+    
     const accountMap: { [key: string]: string } = {
       'Efectivo': 'efectivo',
       'Yape': 'yape',
@@ -190,21 +191,38 @@ export function useAccounts() {
     }
 
     const accountType = accountMap[paymentMethod]
-    if (!accountType) return
+    
+    if (!accountType) {
+      console.warn('⚠️ Método de pago no mapeado, saltando procesamiento')
+      return
+    }
 
     const account = accounts.find(a => a.type === accountType)
-    if (!account) return
-
+    
+    if (!account) {
+      console.error('❌ Cuenta no encontrada para el tipo:', accountType)
+      return
+    }
 
     
-    await createMovement({
-      accountId: account.id,
-      type: 'ingreso',
-      amount,
-      description,
-      source: 'venta',
-      sourceId
-    })
+    try {
+      const movementStartTime = Date.now()
+      
+      await createMovement({
+        accountId: account.id,
+        type: 'ingreso',
+        amount,
+        description,
+        source: 'venta',
+        sourceId
+      })
+      
+      const movementEndTime = Date.now()
+      
+    } catch (error) {
+      console.error('❌ Error creando movimiento:', error)
+      throw error
+    }
   }
 
   const processPurchase = async (paymentMethod: string, amount: number, description: string, sourceId?: string) => {

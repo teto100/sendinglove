@@ -3,45 +3,63 @@
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
-import { ROLE_PERMISSIONS, Module, Permission } from '@/types/permissions'
+import { Module, Permission } from '@/types/permissions'
 import { UserRole } from '@/types/user'
 import { useState, useEffect } from 'react'
 
 export function usePermissions() {
   const [user] = useAuthState(auth)
   const [userRole, setUserRole] = useState<UserRole | null>(null)
+  const [permissions, setPermissions] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUserRoleAndPermissions = async () => {
       if (user) {
         try {
+          // Cargar rol del usuario
           const userDoc = await getDoc(doc(db, 'users', user.uid))
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role)
+            const role = userDoc.data().role
+            setUserRole(role)
+            
+            // Cargar permisos desde system/permissions
+            const permissionsDoc = await getDoc(doc(db, 'system', 'permissions'))
+            if (permissionsDoc.exists()) {
+              const permsData = permissionsDoc.data()
+              setPermissions(permsData)
+            }
           }
         } catch (error) {
+          // Silent error handling
         }
       }
       setLoading(false)
     }
 
-    fetchUserRole()
+    fetchUserRoleAndPermissions()
   }, [user])
 
   const hasPermission = (module: Module, permission: Permission): boolean => {
-    if (!userRole) return false
-    return ROLE_PERMISSIONS[userRole][module].includes(permission)
+    if (!userRole || !permissions) return false
+    const rolePermissions = permissions.rolePermissions || permissions
+    const modulePermissions = rolePermissions[userRole]?.[module] || []
+    return modulePermissions.includes(permission)
   }
 
   const canAccess = (module: Module): boolean => {
-    if (!userRole) return false
-    const modulePermissions = ROLE_PERMISSIONS[userRole]?.[module]
-    return modulePermissions ? modulePermissions.length > 0 : false
+    if (loading || !userRole || !permissions) {
+      return false
+    }
+    
+    const rolePermissions = permissions.rolePermissions || permissions
+    const modulePermissions = rolePermissions[userRole]?.[module] || []
+    return modulePermissions.length > 0
   }
 
   return {
     userRole,
+    permissions,
     loading,
     hasPermission,
     canAccess

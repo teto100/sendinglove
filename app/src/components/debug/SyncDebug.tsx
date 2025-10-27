@@ -17,7 +17,6 @@ export default function SyncDebug() {
         ...doc.data()
       }))
       setUsers(usersList)
-      console.log('Users in Firebase:', usersList)
     } catch (error) {
       console.error('Error fetching users:', error)
     }

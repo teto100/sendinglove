@@ -65,7 +65,7 @@ export function useCachedData<T>(
     } finally {
       setLoading(false)
     }
-  }, [collectionName, fetchData])
+  }, [collectionName])
 
   useEffect(() => {
     loadData()
@@ -78,7 +78,7 @@ export function useCachedData<T>(
     return () => {
       cacheManager.stopWatching(collectionName)
     }
-  }, [collectionName, loadData])
+  }, [collectionName])
 
   const invalidateCache = useCallback(() => {
     cacheManager.invalidateCache(collectionName)
