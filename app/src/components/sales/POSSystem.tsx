@@ -812,7 +812,7 @@ export default function POSSystem() {
                         step="0.01"
                       />
                       <p className="text-sm text-gray-600 mt-1">
-                        Cambio: S/ {change.toFixed(2)}
+                        Vuelto: S/ {change.toFixed(2)}
                       </p>
                     </div>
                   )}
@@ -919,7 +919,7 @@ export default function POSSystem() {
                           />
                           {pm.cashReceived && pm.amount && (
                             <p className="text-xs text-gray-600 mt-1">
-                              Cambio: S/ {Math.max(0, pm.cashReceived - pm.amount).toFixed(2)}
+                              Vuelto: S/ {Math.max(0, pm.cashReceived - pm.amount).toFixed(2)}
                             </p>
                           )}
                         </div>

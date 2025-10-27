@@ -28,18 +28,28 @@ export function useRecipes() {
   }, [])
 
   const addRecipe = async (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => {
-    await addDoc(collection(db, 'recipes'), {
-      ...recipe,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })
+    // Filtrar valores undefined
+    const cleanData = Object.fromEntries(
+      Object.entries({
+        ...recipe,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).filter(([_, value]) => value !== undefined)
+    )
+    
+    await addDoc(collection(db, 'recipes'), cleanData)
   }
 
   const updateRecipe = async (id: string, recipe: Partial<Recipe>) => {
-    await updateDoc(doc(db, 'recipes', id), {
-      ...recipe,
-      updatedAt: new Date()
-    })
+    // Filtrar valores undefined
+    const cleanData = Object.fromEntries(
+      Object.entries({
+        ...recipe,
+        updatedAt: new Date()
+      }).filter(([_, value]) => value !== undefined)
+    )
+    
+    await updateDoc(doc(db, 'recipes', id), cleanData)
   }
 
   const deleteRecipe = async (id: string) => {

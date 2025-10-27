@@ -33,6 +33,7 @@ export interface RecipeIngredient {
   quantity: number
   unitCost: number
   totalCost: number
+  comment?: string
 }
 
 export interface Recipe {
@@ -42,6 +43,9 @@ export interface Recipe {
   productId: string
   ingredients: RecipeIngredient[]
   totalCost: number
+  isMultipleUnits: boolean
+  units: number
+  unitCost: number
   createdAt: Date
   updatedAt: Date
 }

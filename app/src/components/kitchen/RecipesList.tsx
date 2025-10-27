@@ -19,12 +19,15 @@ export default function RecipesList() {
     recipeName: '',
     productName: '',
     productId: '',
-    ingredients: [] as RecipeIngredient[]
+    ingredients: [] as RecipeIngredient[],
+    isMultipleUnits: false,
+    units: 1
   })
 
   const [newIngredient, setNewIngredient] = useState({
     ingredientId: '',
-    quantity: 0
+    quantity: 0,
+    comment: ''
   })
 
   const filteredRecipes = recipes.filter(recipe =>
@@ -36,10 +39,31 @@ export default function RecipesList() {
     e.preventDefault()
     
     const totalCost = formData.ingredients.reduce((sum, ing) => sum + ing.totalCost, 0)
+    const units = formData.isMultipleUnits ? formData.units : 1
+    const unitCost = totalCost / units
+    
+    // Limpiar ingredientes de valores undefined
+    const cleanIngredients = formData.ingredients.map(ing => {
+      const cleanIng: any = {
+        ingredientId: ing.ingredientId,
+        ingredientName: ing.ingredientName,
+        quantity: ing.quantity,
+        unitCost: ing.unitCost,
+        totalCost: ing.totalCost
+      }
+      if (ing.comment) {
+        cleanIng.comment = ing.comment
+      }
+      return cleanIng
+    })
     
     const recipeData = {
       ...formData,
-      totalCost
+      ingredients: cleanIngredients,
+      totalCost,
+      isMultipleUnits: formData.isMultipleUnits || false,
+      units: units || 1,
+      unitCost: unitCost || 0
     }
     
     if (editingRecipe) {
@@ -56,11 +80,14 @@ export default function RecipesList() {
       recipeName: '',
       productName: '',
       productId: '',
-      ingredients: []
+      ingredients: [],
+      isMultipleUnits: false,
+      units: 1
     })
     setNewIngredient({
       ingredientId: '',
-      quantity: 0
+      quantity: 0,
+      comment: ''
     })
     setEditingRecipe(null)
     setShowForm(false)
@@ -71,7 +98,9 @@ export default function RecipesList() {
       recipeName: recipe.recipeName || recipe.productName,
       productName: recipe.productName,
       productId: recipe.productId,
-      ingredients: recipe.ingredients
+      ingredients: recipe.ingredients,
+      isMultipleUnits: recipe.isMultipleUnits || false,
+      units: recipe.units || 1
     })
     setEditingRecipe(recipe)
     setShowForm(true)
@@ -88,7 +117,8 @@ export default function RecipesList() {
       ingredientName: `${ingredient.name} (${ingredient.baseUnit})`,
       quantity: newIngredient.quantity,
       unitCost: ingredient.baseUnitCost,
-      totalCost
+      totalCost,
+      comment: newIngredient.comment || undefined
     }
 
     setFormData({
@@ -98,7 +128,8 @@ export default function RecipesList() {
 
     setNewIngredient({
       ingredientId: '',
-      quantity: 0
+      quantity: 0,
+      comment: ''
     })
   }
 
@@ -152,9 +183,17 @@ export default function RecipesList() {
               <div>
                 <h3 className="text-xl font-bold">{recipe.recipeName || recipe.productName}</h3>
                 <p className="text-sm text-gray-600">Producto: {recipe.productName}</p>
-                <p className="text-lg font-semibold text-green-600">
-                  Costo Total: S/ {recipe.totalCost.toFixed(2)}
+                <p className="text-sm text-gray-600">
+                  {recipe.isMultipleUnits ? `Receta para ${recipe.units || 1} unidades` : 'Receta para 1 unidad'}
                 </p>
+                <p className="text-lg font-semibold text-green-600">
+                  Costo Total: S/ {(recipe.totalCost || 0).toFixed(2)}
+                </p>
+                {recipe.isMultipleUnits && (recipe.units || 1) > 1 && (
+                  <p className="text-md font-semibold text-blue-600">
+                    Costo por Unidad: S/ {(recipe.unitCost || 0).toFixed(2)}
+                  </p>
+                )}
               </div>
               <div className="space-x-2">
                 <button
@@ -180,6 +219,7 @@ export default function RecipesList() {
                     <th className="text-left py-2">Cantidad</th>
                     <th className="text-left py-2">Costo Unit.</th>
                     <th className="text-left py-2">Costo Total</th>
+                    <th className="text-left py-2">Comentario</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,6 +229,7 @@ export default function RecipesList() {
                       <td className="py-2">{ing.quantity}</td>
                       <td className="py-2">S/ {ing.unitCost.toFixed(5)}</td>
                       <td className="py-2">S/ {ing.totalCost.toFixed(2)}</td>
+                      <td className="py-2 text-sm text-gray-600">{ing.comment || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -227,38 +268,83 @@ export default function RecipesList() {
                   <option key={product.id} value={product.id}>{product.name}</option>
                 ))}
               </select>
+              
+              <div className="border p-4 rounded-lg">
+                <h4 className="font-semibold mb-3">Tipo de Receta</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={!formData.isMultipleUnits}
+                      onChange={() => setFormData({...formData, isMultipleUnits: false, units: 1})}
+                      className="mr-2"
+                    />
+                    Receta para 1 unidad
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      checked={formData.isMultipleUnits}
+                      onChange={() => setFormData({...formData, isMultipleUnits: true})}
+                      className="mr-2"
+                    />
+                    Receta para varias unidades
+                  </label>
+                  {formData.isMultipleUnits && (
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Número de unidades"
+                      value={formData.units || ''}
+                      onChange={(e) => setFormData({...formData, units: parseInt(e.target.value) || 1})}
+                      className="w-full px-4 py-2 border rounded-lg mt-2"
+                      required
+                    />
+                  )}
+                </div>
+              </div>
 
               {/* Agregar ingredientes */}
               <div className="border p-4 rounded-lg">
                 <h4 className="font-semibold mb-3">Agregar Ingrediente</h4>
-                <div className="flex gap-2">
-                  <select
-                    value={newIngredient.ingredientId}
-                    onChange={(e) => setNewIngredient({...newIngredient, ingredientId: e.target.value})}
-                    className="flex-1 px-4 py-2 border rounded-lg"
-                  >
-                    <option value="">Seleccionar ingrediente</option>
-                    {ingredients.map(ingredient => (
-                      <option key={ingredient.id} value={ingredient.id}>
-                        {ingredient.name} - usar en {ingredient.baseUnit}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <select
+                      value={newIngredient.ingredientId}
+                      onChange={(e) => setNewIngredient({...newIngredient, ingredientId: e.target.value})}
+                      className="flex-1 px-4 py-2 border rounded-lg"
+                    >
+                      <option value="">Seleccionar ingrediente</option>
+                      {ingredients.map(ingredient => (
+                        <option key={ingredient.id} value={ingredient.id}>
+                          {ingredient.name} - usar en {ingredient.baseUnit}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={`Cantidad ${ingredients.find(ing => ing.id === newIngredient.ingredientId)?.baseUnit || ''}`}
+                      value={newIngredient.quantity || ''}
+                      onChange={(e) => setNewIngredient({...newIngredient, quantity: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
+                      className="w-32 px-4 py-2 border rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={addIngredientToRecipe}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    >
+                      Agregar
+                    </button>
+                  </div>
                   <input
-                    type="number"
-                    step="0.01"
-                    placeholder={`Cantidad ${ingredients.find(ing => ing.id === newIngredient.ingredientId)?.baseUnit || ''}`}
-                    value={newIngredient.quantity || ''}
-                    onChange={(e) => setNewIngredient({...newIngredient, quantity: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                    className="w-32 px-4 py-2 border rounded-lg"
+                    type="text"
+                    placeholder="Comentario opcional (máx. 100 caracteres)"
+                    value={newIngredient.comment}
+                    onChange={(e) => setNewIngredient({...newIngredient, comment: e.target.value.slice(0, 100)})}
+                    className="w-full px-4 py-2 border rounded-lg text-sm"
+                    maxLength={100}
                   />
-                  <button
-                    type="button"
-                    onClick={addIngredientToRecipe}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                  >
-                    Agregar
-                  </button>
                 </div>
               </div>
 
@@ -274,6 +360,7 @@ export default function RecipesList() {
                           <th className="text-left py-2">Cantidad</th>
                           <th className="text-left py-2">Costo Unit.</th>
                           <th className="text-left py-2">Costo Total</th>
+                          <th className="text-left py-2">Comentario</th>
                           <th className="text-left py-2">Acción</th>
                         </tr>
                       </thead>
@@ -284,6 +371,7 @@ export default function RecipesList() {
                             <td className="py-2">{ing.quantity}</td>
                             <td className="py-2">S/ {ing.unitCost.toFixed(5)}</td>
                             <td className="py-2">S/ {ing.totalCost.toFixed(2)}</td>
+                            <td className="py-2 text-sm text-gray-600">{ing.comment || '-'}</td>
                             <td className="py-2">
                               <button
                                 type="button"
@@ -302,6 +390,11 @@ export default function RecipesList() {
                     <p className="text-lg font-semibold">
                       Costo Total: S/ {formData.ingredients.reduce((sum, ing) => sum + ing.totalCost, 0).toFixed(2)}
                     </p>
+                    {formData.isMultipleUnits && formData.units > 1 && (
+                      <p className="text-md text-green-600">
+                        Costo por Unidad: S/ {(formData.ingredients.reduce((sum, ing) => sum + ing.totalCost, 0) / formData.units).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

@@ -159,10 +159,15 @@ export default function PurchaseManagement() {
             <h1 className="text-2xl font-bold text-gray-900">Gestión de Compras de Almacén</h1>
             <div className="flex gap-2">
               <button
-                onClick={forceRefreshFromFirebase}
+                onClick={() => {
+                  localStorage.removeItem('purchases_cache')
+                  localStorage.removeItem('purchases_version')
+                  forceRefreshFromFirebase()
+                  setTimeout(() => window.location.reload(), 500)
+                }}
                 className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
               >
-                🔄 Forzar Actualización
+                🔄 Actualizar desde Firebase
               </button>
               <PermissionButton
                 module="purchases"
@@ -657,6 +662,7 @@ export default function PurchaseManagement() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
@@ -669,11 +675,14 @@ export default function PurchaseManagement() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {purchases.sort((a, b) => {
-                  const dateA = a.purchaseDate?.toDate ? a.purchaseDate.toDate() : new Date(a.purchaseDate)
-                  const dateB = b.purchaseDate?.toDate ? b.purchaseDate.toDate() : new Date(b.purchaseDate)
+                  const dateA = a.purchaseDate?.toDate ? a.purchaseDate.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.purchaseDate || a.createdAt))
+                  const dateB = b.purchaseDate?.toDate ? b.purchaseDate.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.purchaseDate || b.createdAt))
                   return dateB.getTime() - dateA.getTime()
                 }).map((purchase) => (
                   <tr key={purchase.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-xs text-gray-500 font-mono">{purchase.id}</div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{purchase.productName}</div>
                       {purchase.expirationDate && (
@@ -701,12 +710,7 @@ export default function PurchaseManagement() {
                       {(() => {
                         try {
                           const date = purchase.purchaseDate?.toDate ? purchase.purchaseDate.toDate() : new Date(purchase.purchaseDate)
-                          return (
-                            <div>
-                              <div>{date.toLocaleDateString()}</div>
-                              <div className="text-xs text-gray-500">{date.toLocaleTimeString()}</div>
-                            </div>
-                          )
+                          return date.toLocaleDateString()
                         } catch {
                           return 'Fecha inválida'
                         }

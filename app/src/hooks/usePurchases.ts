@@ -9,7 +9,7 @@ import { VersionManager } from '@/utils/versionManager'
 import { useAccounts } from './useAccounts'
 
 export function usePurchases() {
-  const { data: purchases, loading, refresh, forceRefresh } = useCachedData<any>('purchases', 'createdAt', 'desc')
+  const { data: purchases, loading, refresh, forceRefresh } = useCachedData<any>('purchases', 'purchaseDate', 'desc')
   const [operationLoading, setOperationLoading] = useState(false)
   const [firebaseUser] = useAuthState(auth)
   const { processPurchase } = useAccounts()
@@ -23,7 +23,7 @@ export function usePurchases() {
       const docRef = await addDoc(collection(db, 'purchases'), {
         ...purchaseData,
         totalAmount,
-        createdAt: new Date(),
+        createdAt: purchaseData.purchaseDate || new Date(),
         createdBy: firebaseUser.uid,
         createdByName: firebaseUser.email || 'Usuario',
         updatedAt: new Date(),
@@ -55,12 +55,19 @@ export function usePurchases() {
 
     try {
       setOperationLoading(true)
-      await updateDoc(doc(db, 'purchases', id), {
+      const updateData = {
         ...updates,
         updatedAt: new Date(),
         updatedBy: firebaseUser.uid,
         updatedByName: firebaseUser.email || 'Usuario'
-      })
+      }
+      
+      // Si se actualiza la fecha de compra, también actualizar createdAt para mantener consistencia
+      if (updates.purchaseDate) {
+        updateData.createdAt = updates.purchaseDate
+      }
+      
+      await updateDoc(doc(db, 'purchases', id), updateData)
       await VersionManager.updateVersion('purchases')
       return { success: true }
     } catch (error: any) {
