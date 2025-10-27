@@ -23,11 +23,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY
-    })
-
     const auth = getAuth()
     
     const userRecord = await auth.createUser({
