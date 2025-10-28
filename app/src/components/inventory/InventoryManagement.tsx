@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useInventory } from '@/hooks/useInventory'
 import { useProducts } from '@/hooks/useProducts'
+import { useCategories } from '@/hooks/useCategories'
 import { usePermissions } from '@/hooks/usePermissions'
 import { requestNotificationPermission } from '@/lib/notifications'
 import Header from '@/components/layout/Header'
@@ -12,7 +13,26 @@ import AlertModal from '@/components/ui/AlertModal'
 export default function InventoryManagement() {
   const { inventory, movements, loading, createMovement, updateStockLimits, getLowStockItems } = useInventory()
   const { products } = useProducts()
+  const { categories } = useCategories()
   const { hasPermission } = usePermissions()
+  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
+
+  useEffect(() => {
+    const checkDeviceType = () => {
+      const width = window.innerWidth
+      if (width < 768) {
+        setDeviceType('mobile')
+      } else if (width < 1024) {
+        setDeviceType('tablet')
+      } else {
+        setDeviceType('desktop')
+      }
+    }
+
+    checkDeviceType()
+    window.addEventListener('resize', checkDeviceType)
+    return () => window.removeEventListener('resize', checkDeviceType)
+  }, [])
   const [showMovementModal, setShowMovementModal] = useState(false)
   const [showStockModal, setShowStockModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
@@ -157,12 +177,14 @@ export default function InventoryManagement() {
                 )}
                 {hasPermission('inventory', 'create') && (
                   <>
-                    <button
-                      onClick={() => setShowCsvImport(true)}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                    >
-                      Importar CSV
-                    </button>
+                    {deviceType !== 'mobile' && (
+                      <button
+                        onClick={() => setShowCsvImport(true)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                      >
+                        Importar CSV
+                      </button>
+                    )}
                     <button
                       onClick={() => setShowMovementModal(true)}
                       className="px-4 py-2 text-white rounded-lg"
@@ -175,21 +197,7 @@ export default function InventoryManagement() {
               </div>
             </div>
 
-            {/* Alertas de Stock Bajo */}
-            {lowStockItems.length > 0 && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <h3 className="text-lg font-semibold text-red-800 mb-2">⚠️ Alertas de Stock Bajo</h3>
-                <div className="space-y-1">
-                  {lowStockItems
-                    .filter((item, index, arr) => arr.findIndex(i => i.productId === item.productId) === index)
-                    .map(item => (
-                    <div key={item.productId} className="text-red-700">
-                      {item.productName}: {item.currentStock} unidades (mínimo: {item.minStock})
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Tabla de Inventario */}
             <div className="bg-white shadow rounded-lg mb-6">
@@ -204,53 +212,140 @@ export default function InventoryManagement() {
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Actual</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Máximo</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                          {deviceType !== 'mobile' && (
+                            <>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Máximo</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {inventory
                           .filter((item, index, arr) => arr.findIndex(i => i.productId === item.productId) === index)
-                          .map((item) => (
-                          <tr key={item.productId} className={item.currentStock <= item.minStock ? 'bg-red-50' : ''}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item.productName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.currentStock}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.minStock}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.maxStock}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                item.currentStock <= item.minStock 
-                                  ? 'bg-red-100 text-red-800'
-                                  : item.currentStock >= item.maxStock
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
-                                {item.currentStock <= item.minStock ? 'Bajo' : 
-                                 item.currentStock >= item.maxStock ? 'Alto' : 'Normal'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {hasPermission('inventory', 'update') && (
-                                <button
-                                  onClick={() => openStockModal(item)}
-                                  className="text-blue-600 hover:text-blue-900"
-                                >
-                                  Configurar
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                          .sort((a, b) => {
+                            // Obtener productos y sus categorías
+                            const productA = products.find(p => p.id === a.productId)
+                            const productB = products.find(p => p.id === b.productId)
+                            
+                            // Obtener nombres de categorías
+                            const categoryA = productA ? categories.find(c => c.id === productA.categoryId)?.name?.toLowerCase() || '' : ''
+                            const categoryB = productB ? categories.find(c => c.id === productB.categoryId)?.name?.toLowerCase() || '' : ''
+                            
+                            // Identificar bebidas calientes por categoría
+                            const isHotDrinkA = categoryA.includes('bebida') && categoryA.includes('caliente')
+                            const isHotDrinkB = categoryB.includes('bebida') && categoryB.includes('caliente')
+                            
+                            // Identificar bebidas frías por categoría
+                            const isColdDrinkCategoryA = categoryA.includes('bebida') && (categoryA.includes('fría') || categoryA.includes('fria'))
+                            const isColdDrinkCategoryB = categoryB.includes('bebida') && (categoryB.includes('fría') || categoryB.includes('fria'))
+                            
+                            // Productos específicos a excluir de bebidas frías
+                            const excludedColdDrinks = ['inca cola', 'fanta', 'coca cola', 'milkshake de fresa', 'milkshake de oreo']
+                            const isExcludedColdA = excludedColdDrinks.some(drink => 
+                              a.productName.toLowerCase().includes(drink.toLowerCase())
+                            )
+                            const isExcludedColdB = excludedColdDrinks.some(drink => 
+                              b.productName.toLowerCase().includes(drink.toLowerCase())
+                            )
+                            
+                            // Bebidas frías finales (categoría bebida fría pero no excluidas)
+                            const isColdDrinkA = isColdDrinkCategoryA && !isExcludedColdA
+                            const isColdDrinkB = isColdDrinkCategoryB && !isExcludedColdB
+                            
+                            // Orden de prioridad:
+                            // 1. Otros productos (por stock menor)
+                            // 2. Bebidas frías (excluyendo específicas)
+                            // 3. Bebidas calientes al final
+                            
+                            if (isHotDrinkA && !isHotDrinkB) return 1  // A al final
+                            if (!isHotDrinkA && isHotDrinkB) return -1 // B al final
+                            
+                            if (isColdDrinkA && !isColdDrinkB && !isHotDrinkB) return 1  // A después de otros
+                            if (!isColdDrinkA && isColdDrinkB && !isHotDrinkA) return -1 // B después de otros
+                            
+                            // Si están en el mismo grupo, ordenar por stock actual (menor primero)
+                            return a.currentStock - b.currentStock
+                          })
+                          .map((item, index, sortedArray) => {
+                            const productA = products.find(p => p.id === item.productId)
+                            const categoryA = productA ? categories.find(c => c.id === productA.categoryId)?.name?.toLowerCase() || '' : ''
+                            
+                            const isHotDrink = categoryA.includes('bebida') && categoryA.includes('caliente')
+                            const isColdDrinkCategory = categoryA.includes('bebida') && (categoryA.includes('fría') || categoryA.includes('fria'))
+                            const excludedColdDrinks = ['inca cola', 'fanta', 'coca cola', 'milkshake de fresa', 'milkshake de oreo']
+                            const isExcludedCold = excludedColdDrinks.some(drink => item.productName.toLowerCase().includes(drink.toLowerCase()))
+                            const isColdDrink = isColdDrinkCategory && !isExcludedCold
+                            
+                            let currentGroup = 'otros'
+                            if (isHotDrink) currentGroup = 'calientes'
+                            else if (isColdDrink) currentGroup = 'frias'
+                            
+                            let previousGroup = 'otros'
+                            if (index > 0) {
+                              const prevItem = sortedArray[index - 1]
+                              const prevProduct = products.find(p => p.id === prevItem.productId)
+                              const prevCategory = prevProduct ? categories.find(c => c.id === prevProduct.categoryId)?.name?.toLowerCase() || '' : ''
+                              
+                              const prevIsHotDrink = prevCategory.includes('bebida') && prevCategory.includes('caliente')
+                              const prevIsColdDrinkCategory = prevCategory.includes('bebida') && (prevCategory.includes('fría') || prevCategory.includes('fria'))
+                              const prevIsExcludedCold = excludedColdDrinks.some(drink => prevItem.productName.toLowerCase().includes(drink.toLowerCase()))
+                              const prevIsColdDrink = prevIsColdDrinkCategory && !prevIsExcludedCold
+                              
+                              if (prevIsHotDrink) previousGroup = 'calientes'
+                              else if (prevIsColdDrink) previousGroup = 'frias'
+                            }
+                            
+                            const showSeparator = currentGroup !== previousGroup
+                            
+                            return (
+                              <React.Fragment key={`group-${item.productId}`}>
+                                {showSeparator && index > 0 && (
+                                  <tr key={`separator-${index}`}>
+                                    <td colSpan={deviceType === 'mobile' ? 2 : 5} className="px-6 py-3">
+                                      <div className="flex items-center">
+                                        <div className="flex-1 border-t-2 border-gray-400"></div>
+                                        <span className="px-4 text-sm font-semibold text-gray-600 bg-white">
+                                          {currentGroup === 'frias' ? '🧊 Bebidas Frías' : 
+                                           currentGroup === 'calientes' ? '☕ Bebidas Calientes' : ''}
+                                        </span>
+                                        <div className="flex-1 border-t-2 border-gray-400"></div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                                <tr key={item.productId} className={item.currentStock <= item.minStock ? 'bg-red-50' : ''}>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {item.productName}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {item.currentStock}
+                                  </td>
+                                  {deviceType !== 'mobile' && (
+                                    <>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {item.minStock}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {item.maxStock}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        {hasPermission('inventory', 'update') && (
+                                          <button
+                                            onClick={() => openStockModal(item)}
+                                            className="text-blue-600 hover:text-blue-900"
+                                          >
+                                            Configurar
+                                          </button>
+                                        )}
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              </React.Fragment>
+                            )
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -271,7 +366,6 @@ export default function InventoryManagement() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -296,9 +390,6 @@ export default function InventoryManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {movement.reason}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {movement.userName}
                           </td>
                         </tr>
                       ))}

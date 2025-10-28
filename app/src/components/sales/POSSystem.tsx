@@ -23,7 +23,7 @@ export default function POSSystem() {
   const { sales, createSale, updateSale } = useSales()
   const { user, loading: userLoading } = useCurrentUser()
   const { searchCustomers, createCustomer } = useCustomers()
-  const { createMovement } = useInventory()
+  const { createMovement, inventory } = useInventory()
   
   // Usar cache offline si no hay internet
   const products = isOnline ? onlineProducts : offlineStorage.getProducts()
@@ -248,18 +248,33 @@ export default function POSSystem() {
     }
   }
 
-  // Productos elegibles para packs (entre 1 y 2.5 soles, no bebidas, keke, leche asada, acompañamientos)
+  // Productos elegibles para packs (entre 1 y 2.5 soles, no bebidas, keke, leche asada, acompañamientos) con stock disponible
   const packEligibleProducts = activeProducts.filter(p => {
     const category = categories.find(c => c.id === p.categoryId)
     const categoryName = category?.name?.toLowerCase() || ''
+    const inventoryItem = inventory.find(i => i.productId === p.id)
+    const hasStock = inventoryItem ? inventoryItem.currentStock > 0 : false
+    
     return p.price >= 1 && p.price <= 2.5 && 
            !categoryName.includes('bebida') && 
            !categoryName.includes('acompañamiento') &&
            !p.name.toLowerCase().includes('keke') && 
-           !p.name.toLowerCase().includes('leche asada')
+           !p.name.toLowerCase().includes('leche asada') &&
+           hasStock
   })
 
   const addPackItem = (product: any) => {
+    // Verificar stock disponible
+    const inventoryItem = inventory.find(i => i.productId === product.id)
+    const availableStock = inventoryItem?.currentStock || 0
+    const currentUsed = packItems.find(item => item.productId === product.id)?.quantity || 0
+    
+    if (currentUsed >= availableStock) {
+      setErrorMessage(`Stock insuficiente para "${product.name}". Disponible: ${availableStock}`)
+      setShowError(true)
+      return
+    }
+    
     const currentTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
     
@@ -276,6 +291,12 @@ export default function POSSystem() {
       
       if (newTotal > 11) {
         setErrorMessage('No se puede agregar más cantidad. El total del pack excedería S/ 11.00')
+        setShowError(true)
+        return
+      }
+      
+      if (newQuantity > availableStock) {
+        setErrorMessage(`Stock insuficiente para "${product.name}". Disponible: ${availableStock}`)
         setShowError(true)
         return
       }
@@ -1247,16 +1268,27 @@ export default function POSSystem() {
                 <div>
                   <h4 className="font-semibold mb-3">Productos Disponibles (S/ 1.00 - S/ 2.50)</h4>
                   <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                    {packEligibleProducts.map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => addPackItem(product)}
-                        className="p-2 border rounded hover:bg-gray-50 text-left"
-                      >
-                        <div className="text-sm font-medium">{product.name}</div>
-                        <div className="text-xs text-green-600">S/ {product.price.toFixed(2)}</div>
-                      </button>
-                    ))}
+                    {packEligibleProducts.map(product => {
+                      const inventoryItem = inventory.find(i => i.productId === product.id)
+                      const stock = inventoryItem?.currentStock || 0
+                      
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => addPackItem(product)}
+                          className="p-2 border rounded hover:bg-gray-50 text-left"
+                        >
+                          <div className="text-sm font-medium">{product.name}</div>
+                          <div className="text-xs text-green-600">S/ {product.price.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">Stock: {stock}</div>
+                        </button>
+                      )
+                    })}
+                    {packEligibleProducts.length === 0 && (
+                      <div className="col-span-2 text-center text-gray-500 py-4">
+                        No hay productos disponibles con stock
+                      </div>
+                    )}
                   </div>
                 </div>
                 
