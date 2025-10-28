@@ -263,8 +263,8 @@ export default function POSSystem() {
     const currentTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
     
-    if (currentTotal + product.price > 11.5) {
-      setErrorMessage('No se puede agregar. El total del pack excedería S/ 11.50')
+    if (currentTotal + product.price > 11) {
+      setErrorMessage('No se puede agregar. El total del pack excedería S/ 11.00')
       setShowError(true)
       return
     }
@@ -274,8 +274,8 @@ export default function POSSystem() {
       const newQuantity = existing.quantity + 1
       const newTotal = currentTotal - (existing.price * existing.quantity) + (existing.price * newQuantity)
       
-      if (newTotal > 11.5) {
-        setErrorMessage('No se puede agregar más cantidad. El total del pack excedería S/ 11.50')
+      if (newTotal > 11) {
+        setErrorMessage('No se puede agregar más cantidad. El total del pack excedería S/ 11.00')
         setShowError(true)
         return
       }
@@ -313,8 +313,8 @@ export default function POSSystem() {
     const currentTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
     
-    if (currentTotal + decoracionProduct.price > 11.5) {
-      setErrorMessage('No se puede agregar decoración. El total del pack excedería S/ 11.50')
+    if (currentTotal + decoracionProduct.price > 11) {
+      setErrorMessage('No se puede agregar decoración. El total del pack excedería S/ 11.00')
       setShowError(true)
       return
     }
@@ -340,8 +340,8 @@ export default function POSSystem() {
     const extrasTotal = packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
     const total = itemsTotal + extrasTotal
     
-    if (total > 11.5) {
-      setErrorMessage('El total del pack no puede exceder S/ 11.50')
+    if (total > 11) {
+      setErrorMessage('El total del pack no puede exceder S/ 11.00')
       setShowError(true)
       return
     }
@@ -1319,11 +1319,42 @@ export default function POSSystem() {
                       <span>Total extras:</span>
                       <span>S/ {packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0).toFixed(2)}</span>
                     </div>
+                    
+                    {/* Barra de progreso visual */}
+                    <div className="mt-3 mb-2">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Progreso del Pack</span>
+                        <span>S/ {(packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                                   packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)).toFixed(2)} / S/ 11.00</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className={`h-3 rounded-full transition-all duration-300 ${
+                            (packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                             packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11 
+                              ? 'bg-red-500' 
+                              : (packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                                 packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 9
+                              ? 'bg-yellow-500'
+                              : 'bg-green-500'
+                          }`}
+                          style={{
+                            width: `${Math.min(100, ((packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                                                     packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) / 11) * 100)}%`
+                          }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs mt-1 text-gray-500">
+                        <span>S/ 0</span>
+                        <span>S/ 11</span>
+                      </div>
+                    </div>
+                    
                     <div className="flex justify-between font-bold border-t pt-1">
                       <span>Total pack:</span>
                       <span className={`${
                         (packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
-                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11.5 
+                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11 
                           ? 'text-red-600' : 'text-green-600'
                       }`}>
                         S/ {(packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
@@ -1331,8 +1362,8 @@ export default function POSSystem() {
                       </span>
                     </div>
                     {(packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
-                      packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11.5 && (
-                      <p className="text-xs text-red-600 mt-1">Máximo S/ 11.50 por pack</p>
+                      packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11 && (
+                      <p className="text-xs text-red-600 mt-1">⚠️ Máximo S/ 11.00 por pack excedido</p>
                     )}
                   </div>
                 </div>
