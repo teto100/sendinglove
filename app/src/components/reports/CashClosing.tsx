@@ -68,12 +68,11 @@ export default function CashClosing() {
       const saleMonth = saleDate.getMonth() + 1
       const saleDay = saleDate.getDate()
       const isPaid = sale.paymentStatus === 'Pagado'
+      const isNotDeleted = sale.orderStatus !== 'Eliminado'
       
       const matchesDate = saleYear === year && saleMonth === month && saleDay === day
       
-
-      
-      return matchesDate && isPaid
+      return matchesDate && isPaid && isNotDeleted
     })
     
     return filtered

@@ -186,11 +186,7 @@ export default function ExpenseManagement() {
                       <input
                         type="date"
                         value={formData.paymentDate.toISOString().split('T')[0]}
-                        onChange={(e) => {
-                          const now = new Date()
-                          const selectedDate = new Date(e.target.value + 'T' + now.toTimeString().slice(0,8))
-                          setFormData({...formData, paymentDate: selectedDate})
-                        }}
+                        onChange={(e) => setFormData({...formData, paymentDate: new Date(e.target.value + 'T12:00:00')})}
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                         style={{color: '#CF432B'}}
                         required
@@ -409,12 +405,7 @@ export default function ExpenseManagement() {
                       {(() => {
                         try {
                           const date = expense.paymentDate?.toDate ? expense.paymentDate.toDate() : new Date(expense.paymentDate)
-                          return (
-                            <div>
-                              <div>{date.toLocaleDateString()}</div>
-                              <div className="text-xs text-gray-500">{date.toLocaleTimeString()}</div>
-                            </div>
-                          )
+                          return date.toLocaleDateString()
                         } catch {
                           return 'Fecha inválida'
                         }

@@ -111,7 +111,7 @@ export default function FinancialDashboard() {
     
     const filtered = allSales.filter(sale => {
       const saleDate = new Date(sale.createdAt)
-      return saleDate >= from && saleDate <= to && sale.paymentStatus === 'Pagado'
+      return saleDate >= from && saleDate <= to && sale.paymentStatus === 'Pagado' && sale.orderStatus !== 'Eliminado'
     })
     
     return filtered
