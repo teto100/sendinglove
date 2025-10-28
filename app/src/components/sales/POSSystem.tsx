@@ -34,7 +34,7 @@ export default function POSSystem() {
   const [showExtras, setShowExtras] = useState<string | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [discount, setDiscount] = useState(0)
-  const [orderType, setOrderType] = useState<'Mesa' | 'Delivery Rappi' | 'Delivery Interno'>('Mesa')
+  const [orderType, setOrderType] = useState<'Mesa' | 'Para llevar' | 'Delivery Rappi' | 'Delivery Interno'>('Mesa')
   const [paymentStatus, setPaymentStatus] = useState<'SIN PAGAR' | 'Pagado'>('SIN PAGAR')
   const [orderStatus, setOrderStatus] = useState<'Abierta' | 'Cerrada'>('Abierta')
   const [isMultiplePayment, setIsMultiplePayment] = useState(false)
@@ -54,6 +54,9 @@ export default function POSSystem() {
   const [showError, setShowError] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showPackModal, setShowPackModal] = useState<string | null>(null)
+  const [packItems, setPackItems] = useState<any[]>([])
+  const [packExtras, setPackExtras] = useState<any[]>([])
 
 
   const activeProducts = products.filter(p => p.active)
@@ -82,7 +85,13 @@ export default function POSSystem() {
     return filtered
   }, [activeProducts, categories, searchTerm, selectedCategory])
 
-  const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0)
+  const subtotal = cart.reduce((sum, item) => {
+    if (item.isPack && item.name === 'Caja Pack 10') {
+      // Para Caja Pack 10, el subtotal es siempre 10 soles
+      return sum + (10 * item.quantity)
+    }
+    return sum + item.subtotal
+  }, 0)
   const afterDiscount = subtotal - discount
   
   // Calcular recargo de tarjeta basado en métodos de pago múltiples o simple
@@ -102,6 +111,24 @@ export default function POSSystem() {
   const change = paymentMethod === 'Efectivo' ? Math.max(0, cashReceivedNum - total) : 0
 
   const addToCart = async (product: any) => {
+    const category = categories.find(c => c.id === product.categoryId)
+    
+    // Si es un pack, abrir modal de configuración
+    if (category?.name === 'Pack') {
+      // Verificar límite de 3 packs por pedido
+      const packCount = cart.filter(item => item.isPack).length
+      if (packCount >= 3) {
+        setErrorMessage('Máximo 3 packs por pedido')
+        setShowError(true)
+        return
+      }
+      
+      setShowPackModal(product.id)
+      setPackItems([])
+      setPackExtras([])
+      return
+    }
+    
     try {
       // Verificar si hay stock suficiente
       await createMovement({
@@ -109,7 +136,7 @@ export default function POSSystem() {
         type: 'salida',
         quantity: 1,
         reason: 'Verificación stock POS',
-        dryRun: true // Solo verificar, no ejecutar
+        dryRun: true
       })
       
       const existingItem = cart.find(item => item.productId === product.id)
@@ -221,6 +248,122 @@ export default function POSSystem() {
     }
   }
 
+  // Productos elegibles para packs (entre 1 y 2.5 soles, no bebidas, keke, leche asada, acompañamientos)
+  const packEligibleProducts = activeProducts.filter(p => {
+    const category = categories.find(c => c.id === p.categoryId)
+    const categoryName = category?.name?.toLowerCase() || ''
+    return p.price >= 1 && p.price <= 2.5 && 
+           !categoryName.includes('bebida') && 
+           !categoryName.includes('acompañamiento') &&
+           !p.name.toLowerCase().includes('keke') && 
+           !p.name.toLowerCase().includes('leche asada')
+  })
+
+  const addPackItem = (product: any) => {
+    const currentTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                        packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
+    
+    if (currentTotal + product.price > 11.5) {
+      setErrorMessage('No se puede agregar. El total del pack excedería S/ 11.50')
+      setShowError(true)
+      return
+    }
+    
+    const existing = packItems.find(item => item.productId === product.id)
+    if (existing) {
+      const newQuantity = existing.quantity + 1
+      const newTotal = currentTotal - (existing.price * existing.quantity) + (existing.price * newQuantity)
+      
+      if (newTotal > 11.5) {
+        setErrorMessage('No se puede agregar más cantidad. El total del pack excedería S/ 11.50')
+        setShowError(true)
+        return
+      }
+      
+      setPackItems(packItems.map(item => 
+        item.productId === product.id 
+          ? {...item, quantity: newQuantity}
+          : item
+      ))
+    } else {
+      setPackItems([...packItems, {
+        id: Date.now().toString(),
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1
+      }])
+    }
+  }
+
+  const removePackItem = (productId: string) => {
+    setPackItems(packItems.filter(item => item.productId !== productId))
+  }
+
+  const addPackExtra = () => {
+    const decoracionProduct = activeProducts.find(p => p.name === 'Decoracion dulces')
+    if (!decoracionProduct) return
+    
+    if (packExtras.length >= 3) {
+      setErrorMessage('Máximo 3 decoraciones por pack')
+      setShowError(true)
+      return
+    }
+    
+    const currentTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                        packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
+    
+    if (currentTotal + decoracionProduct.price > 11.5) {
+      setErrorMessage('No se puede agregar decoración. El total del pack excedería S/ 11.50')
+      setShowError(true)
+      return
+    }
+    
+    setPackExtras([...packExtras, {
+      id: Date.now().toString(),
+      productId: decoracionProduct.id,
+      name: decoracionProduct.name,
+      price: decoracionProduct.price,
+      quantity: 1
+    }])
+  }
+
+  const removePackExtra = (index: number) => {
+    setPackExtras(packExtras.filter((_, i) => i !== index))
+  }
+
+  const confirmPack = () => {
+    const packProduct = products.find(p => p.id === showPackModal)
+    if (!packProduct) return
+    
+    const itemsTotal = packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const extrasTotal = packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)
+    const total = itemsTotal + extrasTotal
+    
+    if (total > 11.5) {
+      setErrorMessage('El total del pack no puede exceder S/ 11.50')
+      setShowError(true)
+      return
+    }
+    
+    const packItem: SaleItem = {
+      id: Date.now().toString(),
+      productId: packProduct.id,
+      name: packProduct.name,
+      price: packProduct.name === 'Caja Pack 10' ? 10 : packProduct.price,
+      quantity: 1,
+      subtotal: packProduct.name === 'Caja Pack 10' ? 10 : packProduct.price,
+      extras: packExtras,
+      isPack: true,
+      packItems: packItems
+    }
+    
+    setCart([...cart, packItem])
+    setShowPackModal(null)
+    setPackItems([])
+    setPackExtras([])
+  }
+
   const clearCart = () => {
     setCart([])
     setDiscount(0)
@@ -236,6 +379,9 @@ export default function POSSystem() {
     setIsMultiplePayment(false)
     setPaymentMethods([{method: 'Yape', amount: 0}])
     setShowPayment(false)
+    setShowPackModal(null)
+    setPackItems([])
+    setPackExtras([])
   }
 
   const processSale = async () => {
@@ -335,15 +481,38 @@ export default function POSSystem() {
       // Si la venta está cerrada y pagada, reducir inventario
       if (saleData.orderStatus === 'Cerrada' && saleData.paymentStatus === 'Pagado') {
         for (const item of cart) {
-          try {
-            await createMovement({
-              productId: item.productId,
-              type: 'salida',
-              quantity: item.quantity,
-              reason: `Venta POS - ${orderType}`
-            })
-          } catch (error) {
-            // Continuar con otros productos si uno falla
+          if (item.isPack) {
+            // Para packs, reducir inventario de los items del pack
+            if (item.packItems) {
+              for (const packItem of item.packItems) {
+                try {
+                  await createMovement({
+                    productId: packItem.productId,
+                    type: 'salida',
+                    quantity: packItem.quantity * item.quantity,
+                    reason: `Venta POS Pack - ${orderType}`
+                  })
+                } catch (error) {
+                  // Continuar con otros productos si uno falla
+                }
+              }
+            }
+            // Para Caja Pack 10, solo agregar 10 soles a cuentas sin reducir stock del pack
+            if (item.name === 'Caja Pack 10') {
+              // El procesamiento de cuentas ya se hace automáticamente
+              continue
+            }
+          } else {
+            try {
+              await createMovement({
+                productId: item.productId,
+                type: 'salida',
+                quantity: item.quantity,
+                reason: `Venta POS - ${orderType}`
+              })
+            } catch (error) {
+              // Continuar con otros productos si uno falla
+            }
           }
         }
       }
@@ -550,15 +719,32 @@ export default function POSSystem() {
               {cart.map(item => (
                 <div key={item.id} className="border-b pb-2 mb-2 text-sm lg:text-base">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">{item.name}</span>
-                    <button
-                      onClick={() => setShowExtras(showExtras === item.id ? null : item.id)}
-                      className="text-blue-500 text-sm"
-                    >
-                      + Extras
-                    </button>
+                    <span className="font-medium">
+                      {item.name}
+                      {item.isPack && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">PACK</span>}
+                    </span>
+                    {!item.isPack && (
+                      <button
+                        onClick={() => setShowExtras(showExtras === item.id ? null : item.id)}
+                        className="text-blue-500 text-sm"
+                      >
+                        + Extras
+                      </button>
+                    )}
                   </div>
                   
+                  {/* Mostrar items del pack */}
+                  {item.isPack && item.packItems && (
+                    <div className="ml-4 mt-1">
+                      {item.packItems.map(packItem => (
+                        <div key={packItem.id} className="text-xs text-gray-600">
+                          • {packItem.name} x{packItem.quantity}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Mostrar extras */}
                   {item.extras.map(extra => (
                     <div key={extra.id} className="text-sm text-gray-600 ml-4">
                       + {extra.name} x{extra.quantity} (S/ {(extra.price * extra.quantity).toFixed(2)})
@@ -584,7 +770,8 @@ export default function POSSystem() {
                     <span className="font-bold">S/ {item.subtotal.toFixed(2)}</span>
                   </div>
 
-                  {showExtras === item.id && (
+                  {/* Solo mostrar extras para productos normales */}
+                  {showExtras === item.id && !item.isPack && (
                     <div className="mt-2 p-2 bg-gray-50 rounded">
                       <h4 className="text-sm font-medium mb-2">Acompañamientos:</h4>
                       <div className="grid grid-cols-2 gap-1">
@@ -598,6 +785,32 @@ export default function POSSystem() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Mostrar extras disponibles para packs (solo Decoracion dulces) */}
+                  {showExtras === item.id && item.isPack && (
+                    <div className="mt-2 p-2 bg-gray-50 rounded">
+                      <h4 className="text-sm font-medium mb-2">Extras para Pack:</h4>
+                      <button
+                        onClick={() => {
+                          const decoracionProduct = activeProducts.find(p => p.name === 'Decoracion dulces')
+                          if (decoracionProduct && item.extras.length < 3) {
+                            addExtra(item.id, decoracionProduct)
+                          }
+                        }}
+                        disabled={item.extras.length >= 3}
+                        className={`text-xs p-1 rounded ${
+                          item.extras.length >= 3 
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                            : 'bg-blue-100 hover:bg-blue-200'
+                        }`}
+                      >
+                        Decoracion dulces (+S/ {activeProducts.find(p => p.name === 'Decoracion dulces')?.price.toFixed(2) || '0.00'})
+                      </button>
+                      {item.extras.length >= 3 && (
+                        <p className="text-xs text-red-600 mt-1">Máximo 3 decoraciones por pack</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -649,6 +862,7 @@ export default function POSSystem() {
                   className="w-full p-2 border rounded mb-2"
                 >
                   <option value="Mesa">Mesa</option>
+                  <option value="Para llevar">Para llevar</option>
                   <option value="Delivery Rappi">Delivery Rappi</option>
                   <option value="Delivery Interno">Delivery Interno</option>
                 </select>
@@ -1017,6 +1231,144 @@ export default function POSSystem() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">Procesando...</h3>
                 <p className="text-gray-600">{confirmationMessage}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de configuración de pack */}
+        {showPackModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-bold mb-4">Configurar Pack</h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Productos elegibles */}
+                <div>
+                  <h4 className="font-semibold mb-3">Productos Disponibles (S/ 1.00 - S/ 2.50)</h4>
+                  <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                    {packEligibleProducts.map(product => (
+                      <button
+                        key={product.id}
+                        onClick={() => addPackItem(product)}
+                        className="p-2 border rounded hover:bg-gray-50 text-left"
+                      >
+                        <div className="text-sm font-medium">{product.name}</div>
+                        <div className="text-xs text-green-600">S/ {product.price.toFixed(2)}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Items seleccionados */}
+                <div>
+                  <h4 className="font-semibold mb-3">Items del Pack</h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto mb-4">
+                    {packItems.map(item => (
+                      <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span className="text-sm">{item.name} x{item.quantity}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">S/ {(item.price * item.quantity).toFixed(2)}</span>
+                          <button
+                            onClick={() => removePackItem(item.productId)}
+                            className="text-red-500 text-xs"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <h4 className="font-semibold mb-3">Extras (Máx. 3)</h4>
+                  <button
+                    onClick={addPackExtra}
+                    disabled={packExtras.length >= 3}
+                    className={`w-full p-2 rounded mb-2 ${
+                      packExtras.length >= 3 
+                        ? 'bg-gray-300 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    + Decoración dulces
+                  </button>
+                  
+                  <div className="space-y-2 max-h-24 overflow-y-auto">
+                    {packExtras.map((extra, index) => (
+                      <div key={extra.id} className="flex justify-between items-center p-2 bg-yellow-50 rounded">
+                        <span className="text-sm">{extra.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">S/ {extra.price.toFixed(2)}</span>
+                          <button
+                            onClick={() => removePackExtra(index)}
+                            className="text-red-500 text-xs"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-gray-100 rounded">
+                    <div className="flex justify-between text-sm">
+                      <span>Total items:</span>
+                      <span>S/ {packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Total extras:</span>
+                      <span>S/ {packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold border-t pt-1">
+                      <span>Total pack:</span>
+                      <span className={`${
+                        (packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                         packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11.5 
+                          ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        S/ {(packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                             packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)).toFixed(2)}
+                      </span>
+                    </div>
+                    {(packItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + 
+                      packExtras.reduce((sum, extra) => sum + (extra.price * extra.quantity), 0)) > 11.5 && (
+                      <p className="text-xs text-red-600 mt-1">Máximo S/ 11.50 por pack</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={() => {
+                    setShowPackModal(null)
+                    setPackItems([])
+                    setPackExtras([])
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setPackItems([])
+                    setPackExtras([])
+                  }}
+                  className="flex-1 bg-red-500 text-white py-2 rounded hover:bg-red-600"
+                >
+                  Limpiar
+                </button>
+                <button
+                  onClick={confirmPack}
+                  disabled={packItems.length === 0}
+                  className={`flex-1 py-2 rounded text-white ${
+                    packItems.length === 0 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                >
+                  Agregar Pack
+                </button>
               </div>
             </div>
           </div>

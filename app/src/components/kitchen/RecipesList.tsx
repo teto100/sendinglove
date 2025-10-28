@@ -150,6 +150,18 @@ export default function RecipesList() {
     })
   }
 
+  const copyFromRecipe = (recipeId: string) => {
+    const recipe = recipes.find(r => r.id === recipeId)
+    if (!recipe) return
+    
+    setFormData({
+      ...formData,
+      ingredients: [...recipe.ingredients],
+      isMultipleUnits: recipe.isMultipleUnits || false,
+      units: recipe.units || 1
+    })
+  }
+
   if (loading) {
     return <LoadingModal isOpen={true} message="Cargando recetas..." />
   }
@@ -268,6 +280,22 @@ export default function RecipesList() {
                   <option key={product.id} value={product.id}>{product.name}</option>
                 ))}
               </select>
+              
+              <div className="border p-4 rounded-lg">
+                <h4 className="font-semibold mb-3">Copiar de Receta Existente</h4>
+                <select
+                  onChange={(e) => e.target.value && copyFromRecipe(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg mb-4"
+                  defaultValue=""
+                >
+                  <option value="">Seleccionar receta para copiar ingredientes...</option>
+                  {recipes.map(recipe => (
+                    <option key={recipe.id} value={recipe.id}>
+                      {recipe.recipeName || recipe.productName} ({recipe.ingredients.length} ingredientes)
+                    </option>
+                  ))}
+                </select>
+              </div>
               
               <div className="border p-4 rounded-lg">
                 <h4 className="font-semibold mb-3">Tipo de Receta</h4>

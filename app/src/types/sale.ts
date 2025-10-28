@@ -6,6 +6,16 @@ export interface SaleItem {
   quantity: number
   subtotal: number
   extras: SaleExtra[]
+  isPack?: boolean
+  packItems?: PackItem[]
+}
+
+export interface PackItem {
+  id: string
+  productId: string
+  name: string
+  price: number
+  quantity: number
 }
 
 export interface SaleExtra {
@@ -29,7 +39,7 @@ export interface Sale {
   subtotal: number
   discount: number
   total: number
-  orderType: 'Mesa' | 'Delivery Rappi' | 'Delivery Interno'
+  orderType: 'Mesa' | 'Para llevar' | 'Delivery Rappi' | 'Delivery Interno'
   paymentStatus: 'SIN PAGAR' | 'Pagado'
   orderStatus: 'Abierta' | 'Cerrada'
   paymentMethods: PaymentMethod[]
@@ -52,7 +62,7 @@ export interface CreateSaleData {
   subtotal: number
   discount: number
   total: number
-  orderType: 'Mesa' | 'Delivery Rappi' | 'Delivery Interno'
+  orderType: 'Mesa' | 'Para llevar' | 'Delivery Rappi' | 'Delivery Interno'
   paymentStatus: 'SIN PAGAR' | 'Pagado'
   orderStatus: 'Abierta' | 'Cerrada'
   paymentMethods?: PaymentMethod[]
