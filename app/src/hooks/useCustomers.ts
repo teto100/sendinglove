@@ -18,6 +18,22 @@ export function useCustomers() {
 
     try {
       setOperationLoading(true)
+      
+      // Buscar cliente existente con el mismo nombre (insensible a mayúsculas)
+      const existingCustomers = await searchCustomers(customerData.name)
+      const existingCustomer = existingCustomers.find(c => 
+        c.name.toLowerCase() === customerData.name.toLowerCase()
+      )
+      
+      if (existingCustomer) {
+        // Si existe, actualizar teléfono si se proporciona
+        if (customerData.phone && customerData.phone !== existingCustomer.phone) {
+          await updateCustomer(existingCustomer.id, { phone: customerData.phone })
+        }
+        return existingCustomer.id
+      }
+      
+      // Si no existe, crear nuevo cliente
       const docRef = await addDoc(collection(db, 'customers'), {
         ...customerData,
         createdAt: new Date(),
@@ -65,48 +81,28 @@ export function useCustomers() {
   const searchCustomers = async (searchTerm: string): Promise<Customer[]> => {
     if (!searchTerm.trim()) return []
     
-    // Search by name
-    const nameQuery = query(
+    // Obtener todos los clientes y filtrar localmente para búsqueda insensible a mayúsculas
+    const allCustomersQuery = query(
       collection(db, 'customers'),
-      where('name', '>=', searchTerm),
-      where('name', '<=', searchTerm + '\uf8ff'),
       orderBy('name', 'asc')
     )
     
-    // Search by phone
-    const phoneQuery = query(
-      collection(db, 'customers'),
-      where('phone', '>=', searchTerm),
-      where('phone', '<=', searchTerm + '\uf8ff'),
-      orderBy('phone', 'asc')
-    )
-    
-    const [nameSnapshot, phoneSnapshot] = await Promise.all([
-      getDocs(nameQuery),
-      getDocs(phoneQuery)
-    ])
-    
-    const nameResults = nameSnapshot.docs.map(doc => ({
+    const snapshot = await getDocs(allCustomersQuery)
+    const allCustomers = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
       createdAt: doc.data().createdAt?.toDate() || new Date(),
       updatedAt: doc.data().updatedAt?.toDate() || new Date()
     })) as Customer[]
     
-    const phoneResults = phoneSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date()
-    })) as Customer[]
-    
-    // Combine and deduplicate results
-    const allResults = [...nameResults, ...phoneResults]
-    const uniqueResults = allResults.filter((customer, index, self) => 
-      index === self.findIndex(c => c.id === customer.id)
+    // Filtrar localmente con búsqueda insensible a mayúsculas
+    const searchTermLower = searchTerm.toLowerCase()
+    const filteredResults = allCustomers.filter(customer => 
+      customer.name.toLowerCase().includes(searchTermLower) ||
+      (customer.phone && customer.phone.includes(searchTerm))
     )
     
-    return uniqueResults
+    return filteredResults.slice(0, 10) // Limitar a 10 resultados
   }
 
   return {

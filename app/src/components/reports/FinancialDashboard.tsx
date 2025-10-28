@@ -238,11 +238,14 @@ export default function FinancialDashboard() {
     const productSales = {}
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
-        if (!productSales[item.name]) {
-          productSales[item.name] = { name: item.name, quantity: 0, revenue: 0 }
+        // Limpiar nombre del producto igual que en rentabilidad
+        const cleanItemName = item.name.replace(/^"+|"+$/g, '').trim()
+        
+        if (!productSales[cleanItemName]) {
+          productSales[cleanItemName] = { name: cleanItemName, quantity: 0, revenue: 0 }
         }
-        productSales[item.name].quantity += item.quantity
-        productSales[item.name].revenue += item.subtotal
+        productSales[cleanItemName].quantity += item.quantity
+        productSales[cleanItemName].revenue += item.subtotal
       })
     })
     return Object.values(productSales)

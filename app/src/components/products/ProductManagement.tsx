@@ -29,6 +29,7 @@ export default function ProductManagement() {
   const handleFormChange = useCallback((field: keyof CreateProductData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }, [])
+
   const [showCategoryForm, setShowCategoryForm] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
@@ -41,6 +42,17 @@ export default function ProductManagement() {
   const [importResults, setImportResults] = useState<{ success: number, errors: string[] } | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [sortField, setSortField] = useState<'name' | 'price' | 'cost' | 'margin' | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
+  const handleSort = (field: 'name' | 'price' | 'cost' | 'margin') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
 
 
 
@@ -750,23 +762,110 @@ export default function ProductManagement() {
             <table className="hidden lg:table min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center gap-1 hover:text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors cursor-pointer"
+                      type="button"
+                    >
+                      Producto
+                      <span className="ml-1 text-sm">
+                        {sortField === 'name' ? (
+                          sortDirection === 'asc' ? '↑' : '↓'
+                        ) : '↕'}
+                      </span>
+                    </button>
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Costo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Margen</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <button
+                      onClick={() => handleSort('price')}
+                      className="flex items-center gap-1 hover:text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors cursor-pointer"
+                      type="button"
+                    >
+                      Precio
+                      <span className="ml-1 text-sm">
+                        {sortField === 'price' ? (
+                          sortDirection === 'asc' ? '↑' : '↓'
+                        ) : '↕'}
+                      </span>
+                    </button>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <button
+                      onClick={() => handleSort('cost')}
+                      className="flex items-center gap-1 hover:text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors cursor-pointer"
+                      type="button"
+                    >
+                      Costo
+                      <span className="ml-1 text-sm">
+                        {sortField === 'cost' ? (
+                          sortDirection === 'asc' ? '↑' : '↓'
+                        ) : '↕'}
+                      </span>
+                    </button>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <button
+                      onClick={() => handleSort('margin')}
+                      className="flex items-center gap-1 hover:text-blue-600 hover:bg-blue-50 p-1 rounded transition-colors cursor-pointer"
+                      type="button"
+                    >
+                      Margen
+                      <span className="ml-1 text-sm">
+                        {sortField === 'margin' ? (
+                          sortDirection === 'asc' ? '↑' : '↓'
+                        ) : '↕'}
+                      </span>
+                    </button>
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {useMemo(() => products
-                  .filter(product => {
+                {useMemo(() => {
+                  let filteredProducts = products.filter(product => {
                     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
                     const matchesCategory = !categoryFilter || product.categoryId === categoryFilter
                     return matchesSearch && matchesCategory
-                  }), [products, searchTerm, categoryFilter])
+                  })
+                  
+                  if (sortField) {
+                    filteredProducts.sort((a, b) => {
+                      let valueA, valueB
+                      
+                      switch (sortField) {
+                        case 'name':
+                          return sortDirection === 'asc' 
+                            ? a.name.localeCompare(b.name)
+                            : b.name.localeCompare(a.name)
+                        case 'price':
+                          valueA = a.price
+                          valueB = b.price
+                          break
+                        case 'cost':
+                          valueA = a.productionCost || 0
+                          valueB = b.productionCost || 0
+                          break
+                        case 'margin':
+                          valueA = a.price > 0 && a.productionCost > 0 ? ((a.price - a.productionCost) / a.price) * 100 : 0
+                          valueB = b.price > 0 && b.productionCost > 0 ? ((b.price - b.productionCost) / b.price) * 100 : 0
+                          break
+                        default:
+                          return 0
+                      }
+                      
+                      if (sortField !== 'name') {
+                        return sortDirection === 'asc' ? valueA - valueB : valueB - valueA
+                      }
+                      return 0
+                    })
+                  }
+                  
+                  return filteredProducts
+                }, [products, searchTerm, categoryFilter, sortField, sortDirection])
                   .map((product) => (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
