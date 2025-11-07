@@ -6,6 +6,7 @@
 **Tipo:** Aplicación web PWA con Next.js 14 + Firebase  
 **Estado:** ✅ **IMPLEMENTADO Y FUNCIONAL**  
 **Objetivo:** Sistema completo para gestión de fuente de soda con capacidades offline
+**HORA LOCAL:** ✅ **Lima Peru**  
 
 ## 🎯 Propósito y Alcance
 
@@ -117,6 +118,48 @@ Sistema web integral que centraliza y automatiza la gestión completa del negoci
 - **Exportación:** PDF, Excel, CSV con jsPDF
 - **Gráficos interactivos:** Recharts con animaciones
 - **Alertas inteligentes:** Notificaciones automáticas push
+
+
+### **7. Módulo de recompensas para clientes**
+Se crea un modulo de recompensas para clientes frecuentes llamados "Premios".
+
+En la tabla customers se agregaran los siguientes campos:
+- programa_referidos: boolean (esta habilitado para el programa de referidos o no)
+- puntos por compras: number (acumulacion de puntos por compras)
+- puntos por referidos: number  (acumulacion de puntos por referir otros clientes)
+- referidos: number  (cantidad de referidos)
+- latitud: string
+- longitud: string
+- ip: string
+- terminos_condiciones: boolean
+= fecha_tyc: date (fecha en que acepto los tyc)
+- geolocalizacion_aceptada: boolean
+- referente_id: El id de la tbla cliente 
+- referente_cel: number (numero de celular de quien lo refirio)
+- referente_nombre: string (nombre de quien lo refirio)
+
+Las reglas son las siguientes: 
+- Para comenzar con el programa de premios, tiene que solicitarlo al personal y brindar sus datos minimos para empezar Nombre y telefono celular, opcional (numero de cel y nombre de referente).
+- El personal desde el modulo de clientes, agregara o modificara a los clientes existentes para que esten habilitados en el programa.
+-El cliente tiene que registrar sus datos para suscribirse al programa.
+-Se le enviara un mensaje por Whatsapp al cliente que para complete su registro.
+- Si en una visita consume 15 soles como mínimo en la compra y el cliente esta habilitado en el programa, el cliente acumula 1 punto.
+- Si un cliente se registra e indica que viene referido por otro cliente, debe brindar aparte de sus datos, el número de teléfono del referente.
+- El referente acumulara un punto de referidos, si el cliente a quien refirió consume 15 soles como mínimo en la compra y esta habilitado en el programa. (tiene 15 dias postumos al registro para ejecutar la compra para que valga su punto)
+- Maximo 5 referidos en el mismo mes (se puede configurar esa variable)
+- Al llegar a 6 puntos por referidos o por consumo, el cliente tiene derecho a reclamar su premio.
+
+--- Modulo Premios ---
+- El personal puede escoger que producto disponibiliza como premio, puede ser cualquier que cuesta menos de 12 soles.
+- Se tiene que tener una opcion para que con el numero de celular o nombre del cliente se pueda encontrar la cantidad de puntos en modo cartilla de un cliente en particular ademas de su historial de aculumacion (dia de compra, monto consumido , productos consumidos, referido por puntos)
+- Se tiene que tener un historial total paginado de todos los movimientos que han hecho todos los clientes participantes del programa.
+- Se tiene que tener la contabilizacion de productos redimidos y tener una valorizacion de cantidad de premios vs costo de produccion ejemplo: cantidad de premios canjeados 5 , precio de costo de produccion 10 soles, cantidad de soles generados por cada visita.
+- Cada vez que un cliente redima un premio, se disminuira de las existencias pero se contabilizara + 0 en las cuentas.
+-Super premio, si ejecutas 3 premios en menos de 2 meses, te ganas una super promo: Hamburguesa con un milkshake de oreo.
+- Puedes tener 2 super premios maximos cada 2 meses.
+- Se deben crear las tablas nuevas necesarias para guardar todos los datos necesarios.
+
+
 
 ## 📊 Funcionalidades Específicas del Negocio
 

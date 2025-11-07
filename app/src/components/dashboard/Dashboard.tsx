@@ -24,7 +24,8 @@ export default function Dashboard() {
     { id: 'expenses', name: 'Gastos Fijos', description: 'Gastos Mensuales', color: 'red', icon: '💳', path: '/expenses' },
     { id: 'cash-closing', name: 'Cierre de Caja', description: 'Resumen Diario', color: 'gray', icon: '📊', path: '/cash-closing' },
     { id: 'accounts', name: 'Cuentas', description: 'Gestión de Cuentas', color: 'emerald', icon: '🏦', path: '/accounts' },
-    { id: 'kitchen', name: 'Cocina', description: 'Insumos y Recetas', color: 'orange', icon: '🍳', path: '/kitchen' }
+    { id: 'kitchen', name: 'Cocina', description: 'Insumos y Recetas', color: 'orange', icon: '🍳', path: '/kitchen' },
+    { id: 'rewards', name: 'Premios', description: 'Sistema de Recompensas', color: 'yellow', icon: '🏆', path: '/rewards' }
   ], [])
 
   const accessibleModules = useMemo(() => {

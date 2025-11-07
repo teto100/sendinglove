@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
-import { doc, getDoc, addDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 export default function LoginForm() {
@@ -11,7 +11,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [forceOnline, setForceOnline] = useState(false)
+
   const isOnline = useOnlineStatus()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,65 +128,7 @@ export default function LoginForm() {
             </button>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center justify-center space-x-2 text-sm">
-              <span className={`px-2 py-1 rounded ${isOnline ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                {isOnline ? 'Online' : 'Offline'}
-              </span>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={forceOnline}
-                  onChange={(e) => setForceOnline(e.target.checked)}
-                  className="mr-1"
-                />
-                Forzar Online
-              </label>
-            </div>
-            
-            <button
-              type="button"
-              onClick={async () => {
-                if (isOnline || forceOnline) {
-                  try {
-                    const usersSnapshot = await getDocs(collection(db, 'users'))
-                    const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                    localStorage.setItem('users_cache', JSON.stringify(users))
-                    localStorage.setItem('users_cache_timestamp', Date.now().toString())
-                    alert(`Actualizados ${users.length} usuarios desde Firebase`)
-                  } catch (error) {
-                    alert('Error actualizando usuarios')
-                  }
-                } else {
-                  alert('Sin conexión')
-                }
-              }}
-              className="w-full flex justify-center py-2 px-4 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100"
-            >
-              Actualizar Usuarios desde Firebase
-            </button>
-            
-            
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await auth.signOut()
-                } catch (e) {}
-                localStorage.clear()
-                sessionStorage.clear()
-                if ('caches' in window) {
-                  caches.keys().then(names => {
-                    names.forEach(name => caches.delete(name))
-                  })
-                }
-                window.location.reload()
-              }}
-              className="w-full flex justify-center py-2 px-4 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100"
-            >
-              Cerrar Sesión + Limpiar Todo
-            </button>
-          </div>
+
         </form>
       </div>
     </div>

@@ -49,6 +49,7 @@ export default function InventoryManagement() {
   const [showCsvImport, setShowCsvImport] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importResults, setImportResults] = useState<{ success: number, errors: string[] } | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     // Solicitar permisos de notificación al cargar
@@ -202,7 +203,15 @@ export default function InventoryManagement() {
             {/* Tabla de Inventario */}
             <div className="bg-white shadow rounded-lg mb-6">
               <div className="px-4 py-5 sm:p-6">
-                <h2 className="text-lg font-semibold mb-4">Stock Actual</h2>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="🔍 Buscar producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-blue-50 font-medium text-blue-900 placeholder-blue-600"
+                  />
+                </div>
                 {loading ? (
                   <div className="text-center py-8">Cargando inventario...</div>
                 ) : (
@@ -211,7 +220,7 @@ export default function InventoryManagement() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Actual</th>
+                          <th className="px-6 py-3 text-left text-sm font-bold text-blue-900 uppercase bg-blue-100">Stock Actual</th>
                           {deviceType !== 'mobile' && (
                             <>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Mínimo</th>
@@ -224,6 +233,10 @@ export default function InventoryManagement() {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {inventory
                           .filter((item, index, arr) => arr.findIndex(i => i.productId === item.productId) === index)
+                          .filter(item => 
+                            searchTerm === '' || 
+                            item.productName.toLowerCase().includes(searchTerm.toLowerCase())
+                          )
                           .sort((a, b) => {
                             // Obtener productos y sus categorías
                             const productA = products.find(p => p.id === a.productId)
@@ -319,7 +332,7 @@ export default function InventoryManagement() {
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                     {item.productName}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-6 py-4 whitespace-nowrap text-lg font-extrabold text-blue-900 bg-blue-50">
                                     {item.currentStock}
                                   </td>
                                   {deviceType !== 'mobile' && (

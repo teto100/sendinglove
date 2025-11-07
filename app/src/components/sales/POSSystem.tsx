@@ -9,6 +9,8 @@ import { useCustomers } from '@/hooks/useCustomers'
 import { useInventory } from '@/hooks/useInventory'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useDeviceType } from '@/hooks/useDeviceType'
+import { useRewards } from '@/hooks/useRewards'
+import { useRewardsPrizes } from '@/hooks/useRewardsPrizes'
 import { offlineStorage } from '@/lib/offlineStorage'
 import { SaleItem, SaleExtra, CreateSaleData } from '@/types/sale'
 import Header from '@/components/layout/Header'
@@ -24,6 +26,8 @@ export default function POSSystem() {
   const { user, loading: userLoading } = useCurrentUser()
   const { searchCustomers, createCustomer } = useCustomers()
   const { createMovement, inventory } = useInventory()
+  const { searchCustomer, processPurchase } = useRewards()
+  const { prizes, redeemPrize } = useRewardsPrizes()
   
   // Usar cache offline si no hay internet
   const products = isOnline ? onlineProducts : offlineStorage.getProducts()
@@ -34,6 +38,7 @@ export default function POSSystem() {
   const [showExtras, setShowExtras] = useState<string | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [discount, setDiscount] = useState(0)
+  const [discountInput, setDiscountInput] = useState('')
   const [orderType, setOrderType] = useState<'Mesa' | 'Para llevar' | 'Delivery Rappi' | 'Delivery Interno'>('Mesa')
   const [paymentStatus, setPaymentStatus] = useState<'SIN PAGAR' | 'Pagado'>('SIN PAGAR')
   const [orderStatus, setOrderStatus] = useState<'Abierta' | 'Cerrada'>('Abierta')
@@ -57,6 +62,8 @@ export default function POSSystem() {
   const [showPackModal, setShowPackModal] = useState<string | null>(null)
   const [packItems, setPackItems] = useState<any[]>([])
   const [packExtras, setPackExtras] = useState<any[]>([])
+  const [customerRewards, setCustomerRewards] = useState<any>(null)
+  const [showRewardsModal, setShowRewardsModal] = useState(false)
 
 
   const activeProducts = products.filter(p => p.active)
@@ -208,6 +215,7 @@ export default function POSSystem() {
   const loadOrderToCart = (order: any) => {
     setCart(order.items)
     setDiscount(order.discount)
+    setDiscountInput(order.discount ? order.discount.toString() : '')
     setCustomerName(order.customerName || '')
     setTableNumber(order.tableNumber || '')
     setDeliveryAddress(order.deliveryAddress || '')
@@ -388,6 +396,7 @@ export default function POSSystem() {
   const clearCart = () => {
     setCart([])
     setDiscount(0)
+    setDiscountInput('')
     setCustomerName('')
     setCustomerPhone('')
     setCashReceived('')
@@ -497,6 +506,16 @@ export default function POSSystem() {
         }
       } else {
         offlineStorage.saveOfflineOrder(saleData)
+      }
+      
+      // Procesar puntos de recompensas si el cliente está en el programa
+      if (saleData.orderStatus === 'Cerrada' && saleData.paymentStatus === 'Pagado' && customerRewards && total >= 15) {
+        try {
+          const productNames = cart.map(item => item.name)
+          await processPurchase(customerRewards.customer.id, total, selectedOrder?.id || 'new-sale', productNames)
+        } catch (error) {
+          // Error procesando puntos - continuar con la venta
+        }
       }
       
       // Si la venta está cerrada y pagada, reducir inventario
@@ -847,11 +866,17 @@ export default function POSSystem() {
               <div className="flex justify-between items-center mb-2">
                 <span>Descuento:</span>
                 <input
-                  type="number"
-                  value={discount}
-                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                  type="text"
+                  value={discountInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setDiscountInput(value)
+                      setDiscount(parseFloat(value) || 0)
+                    }
+                  }}
                   className="w-20 p-1 border rounded text-right"
-                  step="0.01"
+                  placeholder="0"
                 />
               </div>
               
@@ -1000,13 +1025,48 @@ export default function POSSystem() {
                     </div>
                   )}
                 </div>
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full p-2 border rounded mt-2"
-                  placeholder="Teléfono (opcional)"
-                />
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={async (e) => {
+                      const phone = e.target.value
+                      setCustomerPhone(phone)
+                      
+                      // Buscar cliente en programa de recompensas si tiene 9 dígitos
+                      if (phone.length === 9 && /^\d{9}$/.test(phone)) {
+                        const rewardsCustomer = await searchCustomer(phone)
+                        setCustomerRewards(rewardsCustomer)
+                      } else {
+                        setCustomerRewards(null)
+                      }
+                    }}
+                    className="w-full p-2 border rounded mt-2"
+                    placeholder="Teléfono (opcional)"
+                  />
+                  
+                  {customerRewards && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-green-800">
+                          🏆 Cliente del Programa de Premios
+                        </span>
+                        <button
+                          onClick={() => setShowRewardsModal(true)}
+                          className="text-green-600 hover:text-green-800 text-sm"
+                        >
+                          Ver Detalles
+                        </button>
+                      </div>
+                      <div className="text-sm text-green-700">
+                        <div>Puntos: {customerRewards.total_points}</div>
+                        {customerRewards.can_redeem && (
+                          <div className="text-green-600 font-medium">¡Puede canjear premio!</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {paymentStatus === 'Pagado' && !isMultiplePayment && orderType !== 'Delivery Rappi' && (
@@ -1433,6 +1493,106 @@ export default function POSSystem() {
                   Agregar Pack
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de recompensas */}
+        {showRewardsModal && customerRewards && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">🏆 Programa de Premios</h3>
+              
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between">
+                  <span>Cliente:</span>
+                  <span className="font-medium">{customerRewards.customer.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Teléfono:</span>
+                  <span>{customerRewards.customer.phone}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-blue-50 rounded">
+                    <div className="text-xl font-bold text-blue-600">
+                      {customerRewards.customer.puntos_compras || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">Puntos Compras</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded">
+                    <div className="text-xl font-bold text-green-600">
+                      {customerRewards.customer.puntos_referidos || 0}
+                    </div>
+                    <div className="text-xs text-gray-600">Puntos Referidos</div>
+                  </div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded border-2 border-yellow-200">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {customerRewards.total_points}
+                  </div>
+                  <div className="text-sm text-gray-600">Total de Puntos</div>
+                </div>
+              </div>
+              
+              {customerRewards.can_redeem && (
+                <div className="mb-4">
+                  <h4 className="font-medium mb-2">🎁 Premios Disponibles:</h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {prizes.filter(p => p.points_required <= customerRewards.total_points).map((prize) => (
+                      <div key={prize.id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <div className="font-medium text-sm">{prize.product_name}</div>
+                          <div className="text-xs text-gray-600">
+                            {prize.points_required} puntos
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const success = await redeemPrize(customerRewards.customer.id, prize.id)
+                            if (success) {
+                              // Agregar premio al carrito con precio 0
+                              const prizeItem: SaleItem = {
+                                id: Date.now().toString(),
+                                productId: prize.product_id,
+                                name: `🎁 ${prize.product_name} (PREMIO)`,
+                                price: 0,
+                                quantity: 1,
+                                subtotal: 0,
+                                extras: []
+                              }
+                              setCart([...cart, prizeItem])
+                              setShowRewardsModal(false)
+                              
+                              // Actualizar datos del cliente
+                              const updatedCustomer = await searchCustomer(customerPhone)
+                              setCustomerRewards(updatedCustomer)
+                            }
+                          }}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                        >
+                          Canjear
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-blue-50 p-3 rounded mb-4">
+                <h4 className="font-medium text-blue-900 mb-1">ℹ️ Información</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Compra ≥ S/15.00 = 1 punto</li>
+                  <li>• 6 puntos = 1 premio</li>
+                  <li>• Esta compra: S/{total.toFixed(2)} {total >= 15 ? '✓ Otorga punto' : '✗ No otorga punto'}</li>
+                </ul>
+              </div>
+              
+              <button
+                onClick={() => setShowRewardsModal(false)}
+                className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         )}

@@ -56,6 +56,35 @@ export default function CashClosing() {
   const { purchases } = usePurchases()
 
 
+  // Obtener snapshot del día anterior
+  const [previousDaySnapshot, setPreviousDaySnapshot] = useState(null)
+  
+  useEffect(() => {
+    const loadPreviousDaySnapshot = async () => {
+      try {
+        const [year, month, day] = selectedDate.split('-').map(Number)
+        const previousDay = new Date(year, month - 1, day - 1)
+        const previousDateString = previousDay.toISOString().split('T')[0]
+        
+        const snapshotQuery = query(
+          collection(db, 'daily_snapshots'),
+          where('date', '==', previousDateString)
+        )
+        const snapshotSnap = await getDocs(snapshotQuery)
+        
+        if (!snapshotSnap.empty) {
+          setPreviousDaySnapshot(snapshotSnap.docs[0].data())
+        } else {
+          setPreviousDaySnapshot(null)
+        }
+      } catch (error) {
+        setPreviousDaySnapshot(null)
+      }
+    }
+    
+    loadPreviousDaySnapshot()
+  }, [selectedDate])
+
   // Filtrar ventas del día seleccionado (por fecha de creación)
   const dailySales = useMemo(() => {
     const [year, month, day] = selectedDate.split('-').map(Number)
@@ -230,7 +259,25 @@ export default function CashClosing() {
             {/* Ventas por Método de Pago */}
             <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-xl font-bold mb-4">Dinero por Método de Pago</h2>
+              
+              {/* Saldo inicial (día anterior) */}
+              {previousDaySnapshot && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <h3 className="font-medium text-blue-800 mb-2">Saldo inicial (cierre anterior):</h3>
+                  <div className="space-y-1">
+                    {Object.entries(previousDaySnapshot.accounts).map(([method, amount]: [string, any]) => (
+                      <div key={method} className="flex justify-between text-sm">
+                        <span>{method}:</span>
+                        <span className="font-medium text-blue-700">S/ {amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Ventas del día */}
               <div className="space-y-3">
+                <h3 className="font-medium text-gray-700">Ventas del día:</h3>
                 {Object.entries(salesByPaymentMethod).map(([method, data]: [string, any]) => (
                   <div key={method} className="border-b pb-2">
                     <div className="flex justify-between items-center">
@@ -262,7 +309,9 @@ export default function CashClosing() {
               <h2 className="text-xl font-bold mb-4">Productos Vendidos</h2>
               <div className="max-h-64 overflow-y-auto">
                 <div className="space-y-2">
-                  {Object.entries(productsSold).map(([product, data]: [string, any]) => (
+                  {Object.entries(productsSold)
+                    .sort(([,a], [,b]) => b.total - a.total)
+                    .map(([product, data]: [string, any]) => (
                     <div key={product} className="flex justify-between text-sm">
                       <span>{product} ({data.quantity})</span>
                       <span className="font-medium">S/ {data.total.toFixed(2)}</span>
@@ -275,7 +324,55 @@ export default function CashClosing() {
               </div>
             </div>
 
-
+            {/* Pedidos del Día */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-xl font-bold mb-4">Pedidos del Día ({dailySales.length})</h2>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Productos</th>
+                      <th className="text-left py-2">Método de Pago</th>
+                      <th className="text-left py-2">Cliente</th>
+                      <th className="text-left py-2">Tipo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailySales.map(sale => (
+                      <tr key={sale.id} className="border-b">
+                        <td className="py-2">
+                          <div className="space-y-1">
+                            {sale.items.map((item, index) => (
+                              <div key={index} className="text-xs">
+                                {item.name} x{item.quantity}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2">
+                          {sale.paymentMethods && sale.paymentMethods.length > 0 ? (
+                            <div className="space-y-1">
+                              {sale.paymentMethods.map((pm, index) => (
+                                <div key={index} className="text-xs">
+                                  {pm.method}: S/ {pm.amount.toFixed(2)}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            sale.paymentMethod || 'Sin especificar'
+                          )}
+                        </td>
+                        <td className="py-2">{sale.customerName || 'Cliente general'}</td>
+                        <td className="py-2">{sale.orderType || 'Mesa'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {dailySales.length === 0 && (
+                  <p className="text-gray-500 py-4">No hay pedidos del día</p>
+                )}
+              </div>
+            </div>
 
             {/* Compras de Almacén */}
             <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
@@ -310,6 +407,8 @@ export default function CashClosing() {
                 )}
               </div>
             </div>
+
+
 
             {/* Gastos Fijos */}
             <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">

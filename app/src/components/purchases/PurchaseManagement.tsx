@@ -43,7 +43,7 @@ export default function PurchaseManagement() {
   })
   const [totalCostInput, setTotalCostInput] = useState('')
   const [editTotalCostInput, setEditTotalCostInput] = useState('')
-  const [useUnitCost, setUseUnitCost] = useState(true)
+  const [useUnitCost, setUseUnitCost] = useState(false)
   const [editUseUnitCost, setEditUseUnitCost] = useState(true)
 
   const totalCostValue = parseFloat(totalCostInput) || 0
@@ -61,7 +61,7 @@ export default function PurchaseManagement() {
     const purchaseData = {
       ...formData,
       unitCost: unitCost,
-      purchaseDate: new Date(purchaseDate)
+      purchaseDate: new Date(purchaseDate + 'T12:00:00')
     }
     
     const result = await createPurchase(purchaseData)
@@ -71,7 +71,7 @@ export default function PurchaseManagement() {
       setShowForm(false)
       setFormData({ productName: '', measureType: 'units', quantity: 0, unitCost: 0, supplierName: '', category: 'Otros', paymentMethod: 'Efectivo' })
       setTotalCostInput('')
-      setUseUnitCost(true)
+      setUseUnitCost(false)
       setPurchaseDate(new Date().toISOString().split('T')[0])
       window.location.reload()
     } else {
@@ -115,11 +115,11 @@ export default function PurchaseManagement() {
     const updateData = {
       ...editData,
       unitCost: editUnitCost,
-      purchaseDate: new Date(purchaseDate)
+      purchaseDate: new Date(purchaseDate + 'T12:00:00')
     }
     
     if (editData.expirationDate) {
-      updateData.expirationDate = new Date(editData.expirationDate)
+      updateData.expirationDate = new Date(editData.expirationDate + 'T12:00:00')
     }
     
     delete updateData.id
@@ -266,20 +266,20 @@ export default function PurchaseManagement() {
                       <label className="flex items-center">
                         <input
                           type="radio"
-                          checked={useUnitCost}
-                          onChange={() => setUseUnitCost(true)}
-                          className="mr-2"
-                        />
-                        Ingresar costo unitario
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
                           checked={!useUnitCost}
                           onChange={() => setUseUnitCost(false)}
                           className="mr-2"
                         />
                         Ingresar costo total
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={useUnitCost}
+                          onChange={() => setUseUnitCost(true)}
+                          className="mr-2"
+                        />
+                        Ingresar costo unitario
                       </label>
                     </div>
                     
@@ -372,7 +372,7 @@ export default function PurchaseManagement() {
                       <input
                         type="date"
                         value={formData.expirationDate ? formData.expirationDate.toISOString().split('T')[0] : ''}
-                        onChange={(e) => setFormData({...formData, expirationDate: e.target.value ? new Date(e.target.value) : undefined})}
+                        onChange={(e) => setFormData({...formData, expirationDate: e.target.value ? new Date(e.target.value + 'T12:00:00') : undefined})}
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
                       />
                     </div>
@@ -664,12 +664,12 @@ export default function PurchaseManagement() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Costo Unit.</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
               </thead>
@@ -698,7 +698,7 @@ export default function PurchaseManagement() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{purchase.category}</td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {purchase.measureType === 'weight' ? `${purchase.quantity} kg` : `${purchase.quantity} und`}
                       {purchase.portions && <div className="text-xs text-gray-500">{purchase.portions} porciones</div>}
@@ -715,6 +715,11 @@ export default function PurchaseManagement() {
                           return 'Fecha inválida'
                         }
                       })()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="max-w-xs truncate" title={purchase.notes || ''}>
+                        {purchase.notes || '-'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-1">

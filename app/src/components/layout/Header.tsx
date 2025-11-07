@@ -62,6 +62,7 @@ export default function Header() {
     { name: 'Compras', href: '/purchases', icon: '🛍️', module: 'purchases' },
     { name: 'Cierre Caja', href: '/cash-closing', icon: '💵', module: 'cash-closing' },
     { name: 'Cocina', href: '/kitchen', icon: '🍳', module: 'kitchen' },
+    { name: 'Premios', href: '/rewards', icon: '🏆', module: 'rewards' },
     { name: 'Permisos', href: '/permissions', icon: '🔐', module: 'permissions' }
   ]
   

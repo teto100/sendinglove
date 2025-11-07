@@ -1,6 +1,6 @@
 import { UserRole } from './user'
 
-export type Module = 'users' | 'products' | 'inventory' | 'sales' | 'orders' | 'customers' | 'reports' | 'suppliers' | 'permissions' | 'purchases' | 'expenses' | 'cash-closing' | 'accounts' | 'kitchen'
+export type Module = 'users' | 'products' | 'inventory' | 'sales' | 'orders' | 'customers' | 'reports' | 'suppliers' | 'permissions' | 'purchases' | 'expenses' | 'cash-closing' | 'accounts' | 'kitchen' | 'rewards'
 
 export type Permission = 'read' | 'create' | 'update' | 'delete'
 
@@ -23,7 +23,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     expenses: ['read', 'create', 'update', 'delete'],
     'cash-closing': ['read'],
     accounts: ['read', 'create', 'update', 'delete'],
-    kitchen: ['read', 'create', 'update', 'delete']
+    kitchen: ['read', 'create', 'update', 'delete'],
+    rewards: ['read', 'create', 'update', 'delete']
   },
   admin: {
     users: [],
@@ -39,7 +40,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     expenses: ['read', 'create', 'update', 'delete'],
     'cash-closing': [],
     accounts: ['read', 'create', 'update'],
-    kitchen: []
+    kitchen: [],
+    rewards: ['read', 'create', 'update', 'delete']
   },
   manager: {
     users: ['read'],
@@ -55,7 +57,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     expenses: ['read', 'create', 'update'],
     'cash-closing': ['read'],
     accounts: ['read'],
-    kitchen: ['read', 'create', 'update']
+    kitchen: ['read', 'create', 'update'],
+    rewards: ['read', 'create', 'update']
   },
   cajero: {
     users: [],
@@ -71,7 +74,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     expenses: [],
     'cash-closing': [],
     accounts: [],
-    kitchen: []
+    kitchen: [],
+    rewards: ['read']
   },
   usuario: {
     users: [],
@@ -87,6 +91,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     expenses: [],
     'cash-closing': [],
     accounts: [],
-    kitchen: []
+    kitchen: [],
+    rewards: []
   }
 }

@@ -22,7 +22,8 @@ const moduleLabels: Record<Module, string> = {
   'cash-closing': 'Cierre de Caja',
   permissions: 'Permisos',
   accounts: 'Gestión de Cuentas',
-  kitchen: 'Cocina'
+  kitchen: 'Cocina',
+  rewards: 'Premios'
 }
 
 const permissionLabels: Record<Permission, string> = {
@@ -89,10 +90,16 @@ export default function PermissionManager() {
       await setDoc(docRef, {
         rolePermissions: permissions,
         updatedAt: new Date(),
-        updatedBy: 'admin' // Aquí podrías usar el usuario actual
+        updatedBy: 'admin'
       })
       
       alert('Permisos guardados exitosamente en Firebase')
+      
+      // Forzar recarga de la página para actualizar permisos
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+      
     } catch (error) {
       alert('Error al guardar permisos: ' + error.message)
     } finally {
