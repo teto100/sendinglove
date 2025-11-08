@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { MagnifyingGlassIcon, GiftIcon, StarIcon } from '@heroicons/react/24/outline'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { useRewards } from '@/hooks/useRewards'
 import { useRewardsPrizes } from '@/hooks/useRewardsPrizes'
 import { useCustomersOnline } from '@/hooks/useCustomersOnline'
@@ -19,38 +21,53 @@ export default function CustomerSearch() {
   const { customers } = useCustomersOnline()
 
   useEffect(() => {
+    loadTopCustomersAndDebug()
+  }, [customers])
+  
+  const loadTopCustomersAndDebug = async () => {
     const enabledCustomers = customers.filter(c => c.programa_referidos)
     
-    // 1. Clientes con más puntos
-    const withPoints = enabledCustomers.filter(c => 
-      (c.puntos_compras || 0) + (c.puntos_referidos || 0) > 0
-    ).sort((a, b) => 
-      ((b.puntos_compras || 0) + (b.puntos_referidos || 0)) - 
-      ((a.puntos_compras || 0) + (a.puntos_referidos || 0))
-    ).slice(0, 10)
-    
-    if (withPoints.length > 0) {
-      setTopCustomers(withPoints)
-      return
+    // Cargar todos los clientes habilitados desde Firebase para top customers
+    try {
+      const allEnabledSnap = await getDocs(
+        query(collection(db, 'customers'), where('programa_referidos', '==', true))
+      )
+      
+      const allEnabled = allEnabledSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      
+      // 1. Clientes con más puntos
+      const withPoints = allEnabled.filter(c => 
+        (c.puntos_compras || 0) + (c.puntos_referidos || 0) > 0
+      ).sort((a, b) => 
+        ((b.puntos_compras || 0) + (b.puntos_referidos || 0)) - 
+        ((a.puntos_compras || 0) + (a.puntos_referidos || 0))
+      ).slice(0, 10)
+      
+      if (withPoints.length > 0) {
+        setTopCustomers(withPoints)
+        return
+      }
+      
+      // 2. Clientes con referidos sin activar
+      const withReferrals = allEnabled.filter(c => c.referidos && c.referidos > 0)
+        .sort((a, b) => (b.referidos || 0) - (a.referidos || 0))
+        .slice(0, 10)
+      
+      if (withReferrals.length > 0) {
+        setTopCustomers(withReferrals)
+        return
+      }
+      
+      // 3. Últimos 10 registrados
+      const recent = allEnabled
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
+      
+      setTopCustomers(recent)
+    } catch (error) {
+      console.error('Error loading top customers:', error)
     }
-    
-    // 2. Clientes con referidos sin activar
-    const withReferrals = enabledCustomers.filter(c => c.referidos && c.referidos > 0)
-      .sort((a, b) => (b.referidos || 0) - (a.referidos || 0))
-      .slice(0, 10)
-    
-    if (withReferrals.length > 0) {
-      setTopCustomers(withReferrals)
-      return
-    }
-    
-    // 3. Últimos 10 registrados
-    const recent = enabledCustomers
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
-    
-    setTopCustomers(recent)
-  }, [customers])
+  }
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) {

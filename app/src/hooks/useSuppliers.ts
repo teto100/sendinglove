@@ -5,7 +5,6 @@ import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestor
 import { db } from '@/lib/firebase'
 import { Supplier, CreateSupplierData } from '@/types/supplier'
 import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
 
 export function useSuppliers() {
   const { data: suppliers, loading, refresh } = useCachedData<Supplier>('suppliers', 'name')
@@ -21,7 +20,6 @@ export function useSuppliers() {
         updatedAt: new Date()
       })
       
-      await VersionManager.updateVersion('suppliers')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -37,7 +35,6 @@ export function useSuppliers() {
         ...updates,
         updatedAt: new Date()
       })
-      await VersionManager.updateVersion('suppliers')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -50,7 +47,6 @@ export function useSuppliers() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'suppliers', supplierId))
-      await VersionManager.updateVersion('suppliers')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }

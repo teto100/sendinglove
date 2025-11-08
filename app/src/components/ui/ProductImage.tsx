@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-
 interface ProductImageProps {
   src?: string
   alt: string
@@ -22,7 +20,6 @@ export default function ProductImage({
   className = "" 
 }: ProductImageProps) {
   const [imageSrc, setImageSrc] = useState('/images/products/default.svg')
-  const isOnline = useOnlineStatus()
   
   useEffect(() => {
     if (!src || src === '') {
@@ -50,13 +47,8 @@ export default function ProductImage({
       setImageSrc('/images/products/default.svg')
     }
     
-    // En modo offline, usar directamente la ruta (las imágenes están en public)
-    if (!isOnline) {
-      setImageSrc(fullPath)
-    } else {
-      img.src = fullPath
-    }
-  }, [src, isOnline])
+    img.src = fullPath
+  }, [src])
   
   return (
     <img

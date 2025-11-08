@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy, limit, startAfter, DocumentSnapshot } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Customer, CreateCustomerData } from '@/types/customer'
@@ -10,16 +10,34 @@ export function useCustomersOnline() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [cursors, setCursors] = useState<{ [page: number]: DocumentSnapshot | null }>({})
   const [firebaseUser] = useAuthState(auth)
+  const pageSize = 30
 
-  // Función para obtener datos en tiempo real desde Firebase
-  const fetchCustomers = () => {
-    const customersQuery = query(
-      collection(db, 'customers'),
-      orderBy('createdAt', 'desc')
-    )
+  const fetchCustomers = async (page: number = 1) => {
+    setLoading(true)
+    try {
+      let q = query(
+        collection(db, 'customers'),
+        orderBy('createdAt', 'desc'),
+        limit(pageSize)
+      )
 
-    const unsubscribe = onSnapshot(customersQuery, (snapshot) => {
+      if (page > 1) {
+        const cursor = cursors[page - 1]
+        if (cursor) {
+          q = query(
+            collection(db, 'customers'),
+            orderBy('createdAt', 'desc'),
+            startAfter(cursor),
+            limit(pageSize)
+          )
+        }
+      }
+
+      const snapshot = await getDocs(q)
       const customersData = snapshot.docs.map(doc => {
         const data = doc.data()
         return {
@@ -32,13 +50,18 @@ export function useCustomersOnline() {
       }) as Customer[]
       
       setCustomers(customersData)
+      setHasMore(customersData.length === pageSize)
+      setCurrentPage(page)
+      
+      if (customersData.length > 0) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+        setCursors(prev => ({ ...prev, [page]: lastDoc }))
+      }
+      
       setLoading(false)
-    }, (error) => {
-      console.error('❌ [CUSTOMERS] Error fetching customers:', error)
+    } catch (error) {
       setLoading(false)
-    })
-
-    return unsubscribe
+    }
   }
 
   const createCustomer = async (customerData: CreateCustomerData): Promise<string> => {
@@ -67,8 +90,7 @@ export function useCustomersOnline() {
       const docRef = await addDoc(collection(db, 'customers'), {
         ...customerData,
         createdAt: now,
-        updatedAt: now,
-        _timestamp: Date.now() // Timestamp para evitar cache
+        updatedAt: now
       })
       
       return docRef.id
@@ -89,8 +111,7 @@ export function useCustomersOnline() {
       const { getLimaDate } = await import('@/utils/timezone')
       await updateDoc(doc(db, 'customers', id), {
         ...cleanUpdates,
-        updatedAt: getLimaDate(),
-        _timestamp: Date.now() // Timestamp para evitar cache
+        updatedAt: getLimaDate()
       })
     } finally {
       setOperationLoading(false)
@@ -135,49 +156,30 @@ export function useCustomersOnline() {
     return filteredResults.slice(0, 10) // Limitar a 10 resultados
   }
 
-  // Función manual de refresh (fuerza nueva consulta)
+  const goToPage = (page: number) => {
+    fetchCustomers(page)
+  }
+
   const refresh = async () => {
-    setLoading(true)
-    // Forzar una nueva consulta directa
-    try {
-      const customersQuery = query(
-        collection(db, 'customers'),
-        orderBy('createdAt', 'desc')
-      )
-      const snapshot = await getDocs(customersQuery)
-      const customersData = snapshot.docs.map(doc => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          fecha_habilitacion_premios: data.fecha_habilitacion_premios?.toDate() || data.fecha_habilitacion_premios
-        }
-      }) as Customer[]
-      
-      setCustomers(customersData)
-      setLoading(false)
-    } catch (error) {
-      console.error('❌ [CUSTOMERS] Error en refresh:', error)
-      setLoading(false)
-    }
+    fetchCustomers(currentPage)
   }
 
   useEffect(() => {
     if (firebaseUser) {
-      const unsubscribe = fetchCustomers()
-      return () => unsubscribe()
+      fetchCustomers(1)
     }
   }, [firebaseUser])
 
   return {
     customers,
     loading: loading || operationLoading,
+    currentPage,
+    hasMore,
     createCustomer,
     updateCustomer,
     deleteCustomer,
     searchCustomers,
+    goToPage,
     refresh
   }
 }

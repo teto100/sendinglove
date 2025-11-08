@@ -8,9 +8,14 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Sending Love - Sistema de Gestión',
   description: 'Sistema integral de gestión para Sending Love',
-  manifest: '/manifest.json',
-  themeColor: '#3B82F6',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1'
+  manifest: '/manifest.json'
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#3B82F6'
 }
 
 export default function RootLayout({

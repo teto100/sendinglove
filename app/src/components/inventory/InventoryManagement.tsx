@@ -11,7 +11,11 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import AlertModal from '@/components/ui/AlertModal'
 
 export default function InventoryManagement() {
-  const { inventory, movements, loading, createMovement, updateStockLimits, getLowStockItems } = useInventory()
+  const [movementPage, setMovementPage] = useState(1)
+  const [movementSearchTerm, setMovementSearchTerm] = useState('')
+  const movementsPerPage = 30
+  
+  const { inventory, movements, totalMovements, loading, movementsLoading, createMovement, updateStockLimits, getLowStockItems } = useInventory(movementPage, movementsPerPage, movementSearchTerm)
   const { products } = useProducts()
   const { categories } = useCategories()
   const { hasPermission } = usePermissions()
@@ -370,6 +374,18 @@ export default function InventoryManagement() {
             <div className="bg-white shadow rounded-lg">
               <div className="px-4 py-5 sm:p-6">
                 <h2 className="text-lg font-semibold mb-4">Historial de Movimientos</h2>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="🔍 Filtrar por nombre de producto..."
+                    value={movementSearchTerm}
+                    onChange={(e) => {
+                      setMovementSearchTerm(e.target.value)
+                      setMovementPage(1)
+                    }}
+                    className="px-4 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-green-50 font-medium text-green-900 placeholder-green-600"
+                  />
+                </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -382,33 +398,76 @@ export default function InventoryManagement() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {movements.map((movement) => (
-                        <tr key={movement.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div>{movement.createdAt.toLocaleDateString()}</div>
-                            <div className="text-xs text-gray-500">{movement.createdAt.toLocaleTimeString()}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {movement.productName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              movement.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {movement.type === 'entrada' ? 'Entrada' : 'Salida'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {movement.type === 'entrada' ? '+' : '-'}{movement.quantity}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {movement.reason}
+                      {movementsLoading ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                            Cargando movimientos...
                           </td>
                         </tr>
-                      ))}
+                      ) : movements.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                            No se encontraron movimientos
+                          </td>
+                        </tr>
+                      ) : (
+                        movements.map((movement) => (
+                          <tr key={movement.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div>{movement.createdAt.toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{movement.createdAt.toLocaleTimeString()}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {movement.productName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                movement.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {movement.type === 'entrada' ? 'Entrada' : 'Salida'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {movement.type === 'entrada' ? '+' : '-'}{movement.quantity}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {movement.reason}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Paginación de Movimientos */}
+                {(() => {
+                  const totalPages = Math.ceil(totalMovements / movementsPerPage)
+                  
+                  if (totalPages <= 1) return null
+                  
+                  return (
+                    <div className="flex justify-between items-center mt-4">
+                      <button
+                        onClick={() => setMovementPage(Math.max(1, movementPage - 1))}
+                        disabled={movementPage === 1 || movementsLoading}
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-sm text-gray-700">
+                        Página {movementPage} de {totalPages} ({totalMovements} movimientos)
+                      </span>
+                      <button
+                        onClick={() => setMovementPage(Math.min(totalPages, movementPage + 1))}
+                        disabled={movementPage === totalPages || movementsLoading}
+                        className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>

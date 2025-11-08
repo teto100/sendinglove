@@ -60,15 +60,11 @@ export default function CashClosing() {
   const [previousDaySnapshot, setPreviousDaySnapshot] = useState(null)
   
   useEffect(() => {
-    const loadPreviousDaySnapshot = async () => {
+    const loadDaySnapshot = async () => {
       try {
-        const [year, month, day] = selectedDate.split('-').map(Number)
-        const previousDay = new Date(year, month - 1, day - 1)
-        const previousDateString = previousDay.toISOString().split('T')[0]
-        
         const snapshotQuery = query(
           collection(db, 'daily_snapshots'),
-          where('date', '==', previousDateString)
+          where('date', '==', selectedDate)
         )
         const snapshotSnap = await getDocs(snapshotQuery)
         
@@ -82,7 +78,7 @@ export default function CashClosing() {
       }
     }
     
-    loadPreviousDaySnapshot()
+    loadDaySnapshot()
   }, [selectedDate])
 
   // Filtrar ventas del día seleccionado (por fecha de creación)
@@ -260,10 +256,10 @@ export default function CashClosing() {
             <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-xl font-bold mb-4">Dinero por Método de Pago</h2>
               
-              {/* Saldo inicial (día anterior) */}
+              {/* Saldo inicial (2:00 AM) */}
               {previousDaySnapshot && (
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-2">Saldo inicial (cierre anterior):</h3>
+                  <h3 className="font-medium text-blue-800 mb-2">Saldo inicial (2:00 AM):</h3>
                   <div className="space-y-1">
                     {Object.entries(previousDaySnapshot.accounts).map(([method, amount]: [string, any]) => (
                       <div key={method} className="flex justify-between text-sm">

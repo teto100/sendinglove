@@ -1,18 +1,72 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
-import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
 import { useAccounts } from './useAccounts'
 
 export function usePurchases() {
-  const { data: purchases, loading, refresh, forceRefresh } = useCachedData<any>('purchases', 'purchaseDate', 'desc')
+  const [purchases, setPurchases] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [cursors, setCursors] = useState<{ [page: number]: DocumentSnapshot | null }>({})
   const [firebaseUser] = useAuthState(auth)
   const { processPurchase } = useAccounts()
+  const pageSize = 30
+
+  const fetchPurchases = async (page: number = 1) => {
+    setLoading(true)
+    try {
+      let q = query(
+        collection(db, 'purchases'),
+        orderBy('purchaseDate', 'desc'),
+        limit(pageSize)
+      )
+
+      if (page > 1) {
+        const cursor = cursors[page - 1]
+        if (cursor) {
+          q = query(
+            collection(db, 'purchases'),
+            orderBy('purchaseDate', 'desc'),
+            startAfter(cursor),
+            limit(pageSize)
+          )
+        }
+      }
+
+      const snapshot = await getDocs(q)
+      const purchasesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        purchaseDate: doc.data().purchaseDate?.toDate() || new Date(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      }))
+      
+      setPurchases(purchasesData)
+      setHasMore(purchasesData.length === pageSize)
+      setCurrentPage(page)
+      
+      if (purchasesData.length > 0) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+        setCursors(prev => ({ ...prev, [page]: lastDoc }))
+      }
+      
+      setLoading(false)
+    } catch (error) {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (firebaseUser) {
+      fetchPurchases(1)
+    }
+  }, [firebaseUser])
 
   const createPurchase = async (purchaseData: any) => {
     if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
@@ -41,7 +95,6 @@ export function usePurchases() {
         )
       }
       
-      await VersionManager.updateVersion('purchases')
       return { success: true, id: docRef.id }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -68,7 +121,6 @@ export function usePurchases() {
       }
       
       await updateDoc(doc(db, 'purchases', id), updateData)
-      await VersionManager.updateVersion('purchases')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -83,7 +135,6 @@ export function usePurchases() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'purchases', id))
-      await VersionManager.updateVersion('purchases')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -92,11 +143,15 @@ export function usePurchases() {
     }
   }
 
-  const forceRefreshFromFirebase = async () => {
-    localStorage.removeItem('purchases_cache')
-    localStorage.removeItem('purchases_version')
-    await forceRefresh()
+
+
+  const goToPage = (page: number) => {
+    fetchPurchases(page)
   }
 
-  return { purchases, loading: loading || operationLoading, createPurchase, updatePurchase, deletePurchase, refresh, forceRefreshFromFirebase }
+  const refresh = () => {
+    fetchPurchases(currentPage)
+  }
+
+  return { purchases, loading: loading || operationLoading, currentPage, hasMore, createPurchase, updatePurchase, deletePurchase, goToPage, refresh }
 }

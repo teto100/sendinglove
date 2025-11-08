@@ -9,7 +9,7 @@ import { colors } from '@/styles/colors'
 import LoadingModal from '@/components/ui/LoadingModal'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import PermissionButton from '@/components/ui/PermissionButton'
-import { useActivityLogger } from '@/hooks/useActivityLogger'
+
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 const roleLabels: Record<UserRole, string> = {
@@ -25,7 +25,7 @@ const roleLabels: Record<UserRole, string> = {
 export default function UserManagement() {
   const router = useRouter()
   const { user: currentUser } = useCurrentUser()
-  const { users, loading, createUser, updateUser, deleteUser, syncUserWithAuth, clearCache } = useUsers()
+  const { users, loading, createUser, updateUser, deleteUser } = useUsers()
   const isRoot = currentUser?.role === 'root'
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
@@ -37,9 +37,8 @@ export default function UserManagement() {
   })
   const [editData, setEditData] = useState({ name: '', role: 'usuario' as UserRole })
   const [operationLoading, setOperationLoading] = useState(false)
-  const [showCleanupModal, setShowCleanupModal] = useState(false)
-  const [cleanupStep, setCleanupStep] = useState('')
-  const { logActivity } = useActivityLogger()
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,11 +48,7 @@ export default function UserManagement() {
     
     setOperationLoading(false)
     if (result.success) {
-      await logActivity({
-        type: 'user_created',
-        description: `Usuario creado: ${formData.name} (${formData.role})`,
-        metadata: { email: formData.email, role: formData.role }
-      })
+
       setShowForm(false)
       setFormData({ email: '', password: '', name: '', role: 'usuario' })
       
@@ -77,11 +72,7 @@ export default function UserManagement() {
     setOperationLoading(false)
     
     if (result.success) {
-      await logActivity({
-        type: 'user_updated',
-        description: `Usuario actualizado: ${editData.name}`,
-        metadata: { userId: editingUser, newRole: editData.role }
-      })
+
       setEditingUser(null)
       router.refresh()
     } else {
@@ -96,11 +87,7 @@ export default function UserManagement() {
       setOperationLoading(false)
       
       if (result.success) {
-        await logActivity({
-          type: 'user_deleted',
-          description: `Usuario eliminado: ${userName}`,
-          metadata: { userId }
-        })
+
       } else {
         alert('Error: ' + result.error)
       }
@@ -112,11 +99,7 @@ export default function UserManagement() {
     const result = await updateUser(userId, { active: !currentStatus })
     if (result.success) {
       const user = users.find(u => u.id === userId)
-      await logActivity({
-        type: 'user_updated',
-        description: `Usuario ${!currentStatus ? 'activado' : 'desactivado'}: ${user?.name}`,
-        metadata: { userId, newStatus: !currentStatus }
-      })
+
       router.refresh()
     } else {
       alert('Error: ' + result.error)
@@ -136,96 +119,8 @@ export default function UserManagement() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={async () => {
-              setShowCleanupModal(true)
-              
-              setCleanupStep('Limpiando localStorage...')
-              await new Promise(resolve => setTimeout(resolve, 500))
-              localStorage.clear()
-              
-              setCleanupStep('Limpiando sessionStorage...')
-              await new Promise(resolve => setTimeout(resolve, 500))
-              sessionStorage.clear()
-              
-              setCleanupStep('Limpiando IndexedDB de Firebase...')
-              await new Promise(resolve => setTimeout(resolve, 500))
-              try {
-                // Limpiar bases de datos conocidas de Firebase
-                const firebaseDBs = ['firebaseLocalStorageDb', 'firebase-heartbeat-database', 'firebase-installations-database']
-                for (const dbName of firebaseDBs) {
-                  try {
-                    indexedDB.deleteDatabase(dbName)
-                  } catch (e) {
-                    // Ignorar errores individuales
-                  }
-                }
-              } catch (error) {
-              }
-              
-              setCleanupStep('Limpiando cookies de Firebase...')
-              await new Promise(resolve => setTimeout(resolve, 500))
-              document.cookie.split(";").forEach(c => {
-                const eqPos = c.indexOf("=")
-                const name = eqPos > -1 ? c.substr(0, eqPos) : c
-                if (name.includes('firebase')) {
-                  document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/"
-                }
-              })
-              
-              setCleanupStep('Limpieza completada ✅')
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            }}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm"
-          >
-            Limpiar Todo
-          </button>
-          <button
-            onClick={async () => {
-              if (users.length === 0) {
-                alert('No hay usuarios disponibles')
-                return
-              }
-              
-              const userList = users.map((u, i) => `${i + 1}. ${u.name} (${u.email}) [ID: ${u.id}]`).join('\n')
-              const userIndex = prompt(`Usuarios en Firestore:\n${userList}\n\nSelecciona el número del usuario a sincronizar:`)
-              
-              if (!userIndex || isNaN(parseInt(userIndex))) return
-              
-              const selectedUser = users[parseInt(userIndex) - 1]
-              if (!selectedUser) {
-                alert('Usuario no válido')
-                return
-              }
-              
-              const authUID = prompt(`UID de Firebase Auth para ${selectedUser.name}:\n(Copia desde Firebase Console → Authentication)`)
-              if (!authUID) return
-              
-              setOperationLoading(true)
-              const result = await syncUserWithAuth(selectedUser.email, authUID)
-              setOperationLoading(false)
-              
-              if (result.success) {
-                alert(`Usuario ${selectedUser.name} sincronizado correctamente\nAhora puede hacer login y ver los módulos`)
-                router.refresh()
-              } else {
-                alert('Error: ' + result.error)
-              }
-            }}
-            className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 text-sm"
-          >
-            Sincronizar Usuario
-          </button>
-          <button
-            onClick={async () => {
-              localStorage.removeItem('cache_users')
-              localStorage.removeItem('cache_version_users')
-              router.refresh()
-            }}
-            className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm"
-          >
-            Actualizar
-          </button>
+
+
           <PermissionButton
             module="users"
             permission="create"
@@ -306,34 +201,7 @@ export default function UserManagement() {
         </div>
       )}
 
-      {/* Modal de limpieza */}
-      {showCleanupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-lg shadow-xl max-w-md mx-4 text-center">
-            <h3 className="text-xl font-bold mb-4">Limpiando Cache</h3>
-            <div className="mb-6">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">{cleanupStep}</p>
-            </div>
-            {cleanupStep.includes('✅') && (
-              <div className="space-y-3">
-                <button
-                  onClick={() => router.refresh()}
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-                >
-                  Recargar Página
-                </button>
-                <button
-                  onClick={() => setShowCleanupModal(false)}
-                  className="w-full bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400"
-                >
-                  Cerrar
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+
 
       <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
         {/* Mobile Cards */}

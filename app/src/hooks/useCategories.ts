@@ -5,7 +5,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, w
 import { db } from '@/lib/firebase'
 import { Category } from '@/types/product'
 import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
+
 
 export function useCategories() {
   const { data: categories, loading, refresh } = useCachedData<Category>('categories', 'name')
@@ -21,7 +21,6 @@ export function useCategories() {
         active: true,
         createdAt: new Date()
       })
-      await VersionManager.bumpVersions(['categories', 'products'])
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -34,7 +33,6 @@ export function useCategories() {
     try {
       setOperationLoading(true)
       await updateDoc(doc(db, 'categories', categoryId), updates)
-      await VersionManager.bumpVersions(['categories', 'products'])
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -92,7 +90,6 @@ export function useCategories() {
 
       // Eliminar la categoría
       await deleteDoc(doc(db, 'categories', categoryId))
-      await VersionManager.bumpVersions(['categories', 'products'])
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }

@@ -6,22 +6,11 @@ import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Product, CreateProductData } from '@/types/product'
 import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
-import { offlineStorage } from '@/lib/offlineStorage'
-import { useOnlineStatus } from './useOnlineStatus'
 
 export function useProducts() {
   const { data: products, loading, refresh, forceRefresh } = useCachedData<Product>('products', 'name')
   const [operationLoading, setOperationLoading] = useState(false)
   const [firebaseUser] = useAuthState(auth)
-  const isOnline = useOnlineStatus()
-  
-  // Cachear productos cuando hay internet
-  useEffect(() => {
-    if (isOnline && products.length > 0) {
-      offlineStorage.saveProducts(products)
-    }
-  }, [isOnline, products])
 
   const generateUniqueSKU = async (productName: string): Promise<string> => {
     const abbreviation = productName
@@ -72,7 +61,6 @@ export function useProducts() {
         updatedByName: firebaseUser?.email || 'Usuario'
       })
       
-      await VersionManager.updateVersion('products')
       return { success: true, id: docRef.id, sku: uniqueSKU }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -90,7 +78,6 @@ export function useProducts() {
         updatedBy: firebaseUser?.uid || 'unknown',
         updatedByName: firebaseUser?.email || 'Usuario'
       })
-      await VersionManager.updateVersion('products')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -103,7 +90,6 @@ export function useProducts() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'products', productId))
-      await VersionManager.updateVersion('products')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -112,15 +98,7 @@ export function useProducts() {
     }
   }
 
-  const forceRefreshFromFirebase = async () => {
-    // Limpiar cache local
-    localStorage.removeItem('products_cache')
-    localStorage.removeItem('products_version')
-    offlineStorage.clearProducts()
-    
-    // Forzar refresh desde Firebase
-    await forceRefresh()
-  }
+
 
   return {
     products,
@@ -129,6 +107,6 @@ export function useProducts() {
     updateProduct,
     deleteProduct,
     refresh,
-    forceRefreshFromFirebase
+
   }
 }

@@ -7,31 +7,24 @@ import { useSales } from '@/hooks/useSales'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useInventory } from '@/hooks/useInventory'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useDeviceType } from '@/hooks/useDeviceType'
 import { useRewards } from '@/hooks/useRewards'
 import { useRewardsPrizes } from '@/hooks/useRewardsPrizes'
-import { offlineStorage } from '@/lib/offlineStorage'
 import { SaleItem, SaleExtra, CreateSaleData } from '@/types/sale'
 import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import ProductImage from '@/components/ui/ProductImage'
 
 export default function POSSystem() {
-  const isOnline = useOnlineStatus()
   const deviceType = useDeviceType()
-  const { products: onlineProducts } = useProducts()
-  const { categories: onlineCategories } = useCategories()
+  const { products } = useProducts()
+  const { categories } = useCategories()
   const { sales, createSale, updateSale } = useSales()
   const { user, loading: userLoading } = useCurrentUser()
   const { searchCustomers, createCustomer } = useCustomers()
   const { createMovement, inventory } = useInventory()
   const { searchCustomer, processPurchase } = useRewards()
   const { prizes, redeemPrize } = useRewardsPrizes()
-  
-  // Usar cache offline si no hay internet
-  const products = isOnline ? onlineProducts : offlineStorage.getProducts()
-  const categories = isOnline ? onlineCategories : []
   const [cart, setCart] = useState<SaleItem[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -419,7 +412,7 @@ export default function POSSystem() {
     
 
     
-    if (isOnline && !user?.id) {
+    if (!user?.id) {
       setErrorMessage('Usuario no autenticado')
       setShowError(true)
       return
@@ -488,24 +481,20 @@ export default function POSSystem() {
       
 
 
-      if (isOnline) {
-        // Limpiar valores undefined para Firebase recursivamente
-        const cleanSaleData = JSON.parse(JSON.stringify(saleData, (key, value) => {
-          return value === undefined ? null : value
-        }))
-        
-        // Remover valores null
-        const finalSaleData = Object.fromEntries(
-          Object.entries(cleanSaleData).filter(([_, value]) => value !== null)
-        )
-        
-        if (selectedOrder) {
-          await updateSale(selectedOrder.id, finalSaleData)
-        } else {
-          await createSale(finalSaleData)
-        }
+      // Limpiar valores undefined para Firebase recursivamente
+      const cleanSaleData = JSON.parse(JSON.stringify(saleData, (key, value) => {
+        return value === undefined ? null : value
+      }))
+      
+      // Remover valores null
+      const finalSaleData = Object.fromEntries(
+        Object.entries(cleanSaleData).filter(([_, value]) => value !== null)
+      )
+      
+      if (selectedOrder) {
+        await updateSale(selectedOrder.id, finalSaleData)
       } else {
-        offlineStorage.saveOfflineOrder(saleData)
+        await createSale(finalSaleData)
       }
       
       // Procesar puntos de recompensas si el cliente está en el programa
@@ -558,8 +547,8 @@ export default function POSSystem() {
       }
 
       const message = paymentStatus === 'SIN PAGAR' 
-        ? `Orden ${orderType.toLowerCase()} ${selectedOrder ? 'actualizada' : 'guardada'} ${isOnline ? 'exitosamente' : '(offline)'}` 
-        : `Venta procesada ${isOnline ? 'exitosamente' : '(offline)'} - Total: S/ ${total.toFixed(2)}`
+        ? `Orden ${orderType.toLowerCase()} ${selectedOrder ? 'actualizada' : 'guardada'} exitosamente` 
+        : `Venta procesada exitosamente - Total: S/ ${total.toFixed(2)}`
       
       setConfirmationMessage(message)
       setShowConfirmation(true)
@@ -748,11 +737,7 @@ export default function POSSystem() {
             )}
             <div className="flex justify-between items-center mb-3 lg:mb-4">
               <h2 className="text-lg lg:text-xl font-bold">{selectedOrder ? 'Editar Orden' : 'Pedido Actual'}</h2>
-              {!isOnline && (
-                <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">
-                  Offline
-                </span>
-              )}
+
             </div>
             
             <div className={`flex-1 overflow-y-auto mb-3 lg:mb-4 ${deviceType === 'mobile' ? 'max-h-32' : 'max-h-48 lg:max-h-none'}`}>

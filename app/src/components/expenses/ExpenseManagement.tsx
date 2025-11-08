@@ -11,7 +11,7 @@ import LoadingModal from '@/components/ui/LoadingModal'
 const expenseTypes = ['Alquiler', 'Agua y Luz', 'Internet', 'Banco', 'Contadora', 'Facturación', 'Sunat + Essalud', 'AFP', 'Gas','Otros']
 
 export default function ExpenseManagement() {
-  const { expenses, loading, createExpense, updateExpense, deleteExpense, forceRefreshFromFirebase } = useExpenses()
+  const { expenses, loading, currentPage, hasMore, createExpense, updateExpense, deleteExpense, goToPage } = useExpenses()
   const [showForm, setShowForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [operationLoading, setOperationLoading] = useState(false)
@@ -115,13 +115,6 @@ export default function ExpenseManagement() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Gastos Fijos</h1>
             <div className="flex gap-2">
-              <button
-                onClick={forceRefreshFromFirebase}
-                className="text-white px-4 py-2 rounded-md text-sm hover:opacity-80"
-                style={{backgroundColor: '#B2B171'}}
-              >
-                🔄 Forzar Actualización
-              </button>
               <PermissionButton
                 module="expenses"
                 permission="create"
@@ -447,6 +440,27 @@ export default function ExpenseManagement() {
                 ))}
               </tbody>
             </table>
+
+            {/* Paginación */}
+            <div className="flex justify-between items-center mt-6 px-6 pb-6">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-gray-700">
+                Página {currentPage} - {expenses.length} gastos {hasMore ? '(hay más)' : '(última página)'}
+              </span>
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={!hasMore || loading}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         </div>
       </div>

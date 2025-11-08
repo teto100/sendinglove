@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Snapshot already exists for today' })
     }
 
-    // Obtener cuentas
+    // Obtener cuentas con saldo actual
     const accountsSnap = await getDocs(collection(db, 'accounts'))
     const accounts = {}
     
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       const data = doc.data()
       const accountName = data.name
       if (['Efectivo', 'Yape', 'Cuenta BBVA'].includes(accountName)) {
-        accounts[accountName] = data.initialBalance || 0
+        accounts[accountName] = Math.round((data.balance || 0) * 100) / 100
       }
     })
 

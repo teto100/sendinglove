@@ -26,21 +26,14 @@ export function useCurrentUser() {
             } as User)
           }
           
-          // Set login time from localStorage or current time
-          const storedLoginTime = localStorage.getItem('loginTime')
-          if (storedLoginTime) {
-            setLoginTime(new Date(storedLoginTime))
-          } else {
-            const currentTime = new Date()
-            setLoginTime(currentTime)
-            localStorage.setItem('loginTime', currentTime.toISOString())
-          }
+          // Set login time to current time
+          const currentTime = new Date()
+          setLoginTime(currentTime)
         } catch (error) {
         }
       } else {
         setUserData(null)
         setLoginTime(null)
-        localStorage.removeItem('loginTime')
       }
       setLoading(false)
     }

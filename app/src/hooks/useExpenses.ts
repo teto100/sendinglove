@@ -1,18 +1,73 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, limit, startAfter, getDocs, DocumentSnapshot } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
-import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
 import { useAccounts } from './useAccounts'
 
 export function useExpenses() {
-  const { data: expenses, loading, refresh, forceRefresh } = useCachedData<any>('expenses', 'createdAt', 'desc')
+  const [expenses, setExpenses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [cursors, setCursors] = useState<{ [page: number]: DocumentSnapshot | null }>({})
   const [firebaseUser] = useAuthState(auth)
   const { processExpense } = useAccounts()
+  const pageSize = 30
+
+  const fetchExpenses = async (page: number = 1) => {
+    setLoading(true)
+    try {
+      let q = query(
+        collection(db, 'expenses'),
+        orderBy('createdAt', 'desc'),
+        limit(pageSize)
+      )
+
+      if (page > 1) {
+        const cursor = cursors[page - 1]
+        if (cursor) {
+          q = query(
+            collection(db, 'expenses'),
+            orderBy('createdAt', 'desc'),
+            startAfter(cursor),
+            limit(pageSize)
+          )
+        }
+      }
+
+      const snapshot = await getDocs(q)
+      const expensesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+        paymentDate: doc.data().paymentDate?.toDate() || new Date(),
+        dueDate: doc.data().dueDate?.toDate() || new Date()
+      }))
+      
+      setExpenses(expensesData)
+      setHasMore(expensesData.length === pageSize)
+      setCurrentPage(page)
+      
+      if (expensesData.length > 0) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+        setCursors(prev => ({ ...prev, [page]: lastDoc }))
+      }
+      
+      setLoading(false)
+    } catch (error) {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (firebaseUser) {
+      fetchExpenses(1)
+    }
+  }, [firebaseUser])
 
   const createExpense = async (expenseData: any) => {
     if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
@@ -42,7 +97,6 @@ export function useExpenses() {
         )
       }
       
-      await VersionManager.updateVersion('expenses')
       return { success: true, id: docRef.id }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -62,7 +116,6 @@ export function useExpenses() {
         updatedBy: firebaseUser.uid,
         updatedByName: firebaseUser.email || 'Usuario'
       })
-      await VersionManager.updateVersion('expenses')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -77,7 +130,6 @@ export function useExpenses() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'expenses', id))
-      await VersionManager.updateVersion('expenses')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -86,11 +138,13 @@ export function useExpenses() {
     }
   }
 
-  const forceRefreshFromFirebase = async () => {
-    localStorage.removeItem('expenses_cache')
-    localStorage.removeItem('expenses_version')
-    await forceRefresh()
+  const goToPage = (page: number) => {
+    fetchExpenses(page)
   }
 
-  return { expenses, loading: loading || operationLoading, createExpense, updateExpense, deleteExpense, refresh, forceRefreshFromFirebase }
+  const refresh = () => {
+    fetchExpenses(currentPage)
+  }
+
+  return { expenses, loading: loading || operationLoading, currentPage, hasMore, createExpense, updateExpense, deleteExpense, goToPage, refresh }
 }

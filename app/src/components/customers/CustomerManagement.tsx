@@ -9,7 +9,7 @@ import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 export default function CustomerManagement() {
-  const { customers, loading, createCustomer, updateCustomer, deleteCustomer, refresh } = useCustomersOnline()
+  const { customers, loading, currentPage, hasMore, createCustomer, updateCustomer, deleteCustomer, searchCustomers, goToPage, refresh } = useCustomersOnline()
   
   // Filtrar solo clientes habilitados en el programa
   const enabledCustomers = customers.filter(c => c.programa_referidos)
@@ -31,11 +31,22 @@ export default function CustomerManagement() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (customer.phone && customer.phone.includes(searchTerm)) ||
-    customer.id.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [searchResults, setSearchResults] = useState<Customer[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term)
+    if (term.trim().length >= 2) {
+      setIsSearching(true)
+      const results = await searchCustomers(term)
+      setSearchResults(results)
+      setIsSearching(false)
+    } else {
+      setSearchResults([])
+    }
+  }
+
+  const displayCustomers = searchTerm.trim().length >= 2 ? searchResults : customers
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,12 +181,8 @@ export default function CustomerManagement() {
 
   const handleRewardsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('🎯 [UI] Iniciando proceso de habilitación desde formulario')
-    console.log('🎯 [UI] Selected Customer:', selectedCustomer)
-    console.log('🎯 [UI] Form Data:', rewardsFormData)
     
     if (!selectedCustomer) {
-      console.error('❌ [UI] No hay cliente seleccionado')
       return
     }
     
@@ -218,22 +225,14 @@ export default function CustomerManagement() {
       rewardsFormData.referentName || undefined
     )
     
-    console.log('🎯 [UI] Resultado de habilitación:', success)
-    
     if (success) {
-      console.log('✅ [UI] Cerrando modal y limpiando formulario')
-      console.log('🔄 [UI] Refrescando lista de clientes...')
-      // Refrescar la lista de clientes ANTES de mostrar el modal de éxito
-      await refresh()
-      console.log('✅ [UI] Lista de clientes refrescada')
+      refresh()
       setShowRewardsModal(false)
       setSelectedCustomer(null)
       setRewardsFormData({ referentPhone: '', referentName: '' })
       setSuccessMessage('Cliente habilitado en el programa de premios correctamente')
       setShowSuccess(true)
-      // Ya no necesitamos recarga manual, el listener en tiempo real se encarga
     } else {
-      console.error('❌ [UI] Error en la habilitación, manteniendo modal abierto')
       setErrorMessage('Error al habilitar el programa de premios')
       setShowError(true)
     }
@@ -266,113 +265,146 @@ export default function CustomerManagement() {
                 <div className="mb-4">
                   <input
                     type="text"
-                    placeholder="Buscar por ID, nombre o teléfono..."
+                    placeholder="Buscar por nombre o teléfono (mín. 2 caracteres)..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleSearch(e.target.value)}
                     className="w-full p-3 border rounded-lg"
                   />
+                  {isSearching && (
+                    <p className="text-sm text-gray-500 mt-1">Buscando...</p>
+                  )}
+                  {searchTerm.trim().length >= 2 && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      Mostrando {searchResults.length} resultados de búsqueda global
+                    </p>
+                  )}
                 </div>
 
                 {loading ? (
                   <div className="text-center py-8">Cargando clientes...</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Cliente</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Programa Premios</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Habilitación</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Registro</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredCustomers.map((customer) => (
-                          <tr key={customer.id} className="hover:bg-gray-50">
-                            <td className="px-2 py-4 text-xs text-gray-500 font-mono break-all">
-                              {customer.id}
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {customer.name}
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {customer.phone || '-'}
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {customer.programa_referidos ? (
-                                <div className="flex items-center space-x-2">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    🏆 Activo
-                                  </span>
-                                  <div className="text-xs text-gray-500">
-                                    C: {customer.puntos_compras || 0} | R: {customer.puntos_referidos || 0}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  No inscrito
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {customer.programa_referidos && customer.fecha_habilitacion_premios ? (
-                                <div>
-                                  <div>{customer.fecha_habilitacion_premios instanceof Date 
-                                    ? customer.fecha_habilitacion_premios.toLocaleDateString('es-PE')
-                                    : customer.fecha_habilitacion_premios?.toDate?.()?.toLocaleDateString('es-PE') || '-'
-                                  }</div>
-                                  <div className="text-xs text-gray-500">{customer.fecha_habilitacion_premios instanceof Date 
-                                    ? customer.fecha_habilitacion_premios.toLocaleTimeString('es-PE')
-                                    : customer.fecha_habilitacion_premios?.toDate?.()?.toLocaleTimeString('es-PE') || '-'
-                                  }</div>
-                                </div>
-                              ) : '-'}
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                              <div>{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : '-'}</div>
-                              <div className="text-xs text-gray-500">{customer.createdAt ? new Date(customer.createdAt).toLocaleTimeString() : '-'}</div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex gap-2">
-                                {hasPermission('customers', 'update') && (
-                                  <button
-                                    onClick={() => handleEdit(customer)}
-                                    className="text-blue-600 hover:text-blue-900 mr-3"
-                                  >
-                                    Editar
-                                  </button>
-                                )}
-                                {!customer.programa_referidos && hasPermission('customers', 'update') && (
-                                  <button
-                                    onClick={() => handleEnableRewards(customer)}
-                                    className={`mr-3 ${
-                                      customer.phone && customer.phone.trim() !== '' 
-                                        ? 'text-green-600 hover:text-green-900' 
-                                        : 'text-gray-400 cursor-not-allowed'
-                                    }`}
-                                    title={customer.phone && customer.phone.trim() !== '' ? 'Habilitar programa de premios' : 'Requiere número de teléfono'}
-                                  >
-                                    🏆 Premios
-                                  </button>
-                                )}
-                                {hasPermission('customers', 'delete') && (
-                                  <button
-                                    onClick={() => handleDelete(customer)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Eliminar
-                                  </button>
-                                )}
-                              </div>
-                            </td>
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Cliente</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Programa Premios</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Habilitación</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Registro</th>
+                            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {displayCustomers.map((customer) => (
+                            <tr key={customer.id} className="hover:bg-gray-50">
+                              <td className="px-2 py-4 text-xs text-gray-500 font-mono break-all">
+                                {customer.id}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {customer.name}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {customer.phone || '-'}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {customer.programa_referidos ? (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      🏆 Activo
+                                    </span>
+                                    <div className="text-xs text-gray-500">
+                                      C: {customer.puntos_compras || 0} | R: {customer.puntos_referidos || 0}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    No inscrito
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {customer.programa_referidos && customer.fecha_habilitacion_premios ? (
+                                  <div>
+                                    <div>{customer.fecha_habilitacion_premios instanceof Date 
+                                      ? customer.fecha_habilitacion_premios.toLocaleDateString('es-PE')
+                                      : customer.fecha_habilitacion_premios?.toDate?.()?.toLocaleDateString('es-PE') || '-'
+                                    }</div>
+                                    <div className="text-xs text-gray-500">{customer.fecha_habilitacion_premios instanceof Date 
+                                      ? customer.fecha_habilitacion_premios.toLocaleTimeString('es-PE')
+                                      : customer.fecha_habilitacion_premios?.toDate?.()?.toLocaleTimeString('es-PE') || '-'
+                                    }</div>
+                                  </div>
+                                ) : '-'}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div>{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : '-'}</div>
+                                <div className="text-xs text-gray-500">{customer.createdAt ? new Date(customer.createdAt).toLocaleTimeString() : '-'}</div>
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex gap-2">
+                                  {hasPermission('customers', 'update') && (
+                                    <button
+                                      onClick={() => handleEdit(customer)}
+                                      className="text-blue-600 hover:text-blue-900 mr-3"
+                                    >
+                                      Editar
+                                    </button>
+                                  )}
+                                  {!customer.programa_referidos && hasPermission('customers', 'update') && (
+                                    <button
+                                      onClick={() => handleEnableRewards(customer)}
+                                      className={`mr-3 ${
+                                        customer.phone && customer.phone.trim() !== '' 
+                                          ? 'text-green-600 hover:text-green-900' 
+                                          : 'text-gray-400 cursor-not-allowed'
+                                      }`}
+                                      title={customer.phone && customer.phone.trim() !== '' ? 'Habilitar programa de premios' : 'Requiere número de teléfono'}
+                                    >
+                                      🏆 Premios
+                                    </button>
+                                  )}
+                                  {hasPermission('customers', 'delete') && (
+                                    <button
+                                      onClick={() => handleDelete(customer)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Paginación - Solo mostrar si no hay búsqueda activa */}
+                    {searchTerm.trim().length < 2 && (
+                      <div className="flex justify-between items-center mt-6">
+                        <button
+                          onClick={() => goToPage(currentPage - 1)}
+                          disabled={currentPage === 1 || loading}
+                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-sm text-gray-700">
+                          Página {currentPage} - {customers.length} clientes {hasMore ? '(hay más)' : '(última página)'}
+                        </span>
+                        <button
+                          onClick={() => goToPage(currentPage + 1)}
+                          disabled={!hasMore || loading}
+                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

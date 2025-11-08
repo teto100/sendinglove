@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, onSnapshot, query, orderBy, limit, startAfter, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, orderBy, limit, startAfter, getDocs, deleteDoc, doc, updateDoc, DocumentSnapshot } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Sale } from '@/types/sale'
@@ -11,8 +11,9 @@ export function useAllSales() {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [cursors, setCursors] = useState<{ [page: number]: DocumentSnapshot | null }>({})
   const [firebaseUser] = useAuthState(auth)
-  const pageSize = 10
+  const pageSize = 30
 
   const fetchSales = async (page: number = 1) => {
     setLoading(true)
@@ -24,18 +25,12 @@ export function useAllSales() {
       )
 
       if (page > 1) {
-        const previousQuery = query(
-          collection(db, 'sales'),
-          orderBy('createdAt', 'desc'),
-          limit((page - 1) * pageSize)
-        )
-        const previousDocs = await getDocs(previousQuery)
-        const lastDoc = previousDocs.docs[previousDocs.docs.length - 1]
-        if (lastDoc) {
+        const cursor = cursors[page - 1]
+        if (cursor) {
           q = query(
             collection(db, 'sales'),
             orderBy('createdAt', 'desc'),
-            startAfter(lastDoc),
+            startAfter(cursor),
             limit(pageSize)
           )
         }
@@ -52,6 +47,11 @@ export function useAllSales() {
       setSales(salesData)
       setHasMore(salesData.length === pageSize)
       setCurrentPage(page)
+      
+      if (salesData.length > 0) {
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1]
+        setCursors(prev => ({ ...prev, [page]: lastDoc }))
+      }
     } catch (error) {
     } finally {
       setLoading(false)

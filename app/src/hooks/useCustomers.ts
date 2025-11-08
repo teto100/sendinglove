@@ -6,7 +6,6 @@ import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Customer, CreateCustomerData } from '@/types/customer'
 import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
 
 export function useCustomers() {
   const { data: customers, loading, refresh } = useCachedData<Customer>('customers', 'name')
@@ -39,7 +38,6 @@ export function useCustomers() {
         createdAt: new Date(),
         updatedAt: new Date()
       })
-      await VersionManager.updateVersion('customers')
       await refresh()
       return docRef.id
     } finally {
@@ -60,7 +58,6 @@ export function useCustomers() {
         ...cleanUpdates,
         updatedAt: new Date()
       })
-      await VersionManager.updateVersion('customers')
       await refresh()
     } finally {
       setOperationLoading(false)
@@ -73,7 +70,6 @@ export function useCustomers() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'customers', id))
-      await VersionManager.updateVersion('customers')
       await refresh()
     } finally {
       setOperationLoading(false)

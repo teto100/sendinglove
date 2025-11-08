@@ -24,6 +24,8 @@ export default function OrdersList() {
   const [editingOrder, setEditingOrder] = useState<Sale | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerSuggestions, setCustomerSuggestions] = useState<any[]>([])
+  const [customerNameSearch, setCustomerNameSearch] = useState('')
+  const [customerNameSuggestions, setCustomerNameSuggestions] = useState<any[]>([])
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -50,6 +52,8 @@ export default function OrdersList() {
     setEditingOrder({ ...order })
     setCustomerSearch(order.customerPhone || '')
     setCustomerSuggestions([])
+    setCustomerNameSearch(order.customerName || '')
+    setCustomerNameSuggestions([])
     setShowEditModal(true)
   }
 
@@ -69,9 +73,43 @@ export default function OrdersList() {
 
   const handleSelectCustomer = (customer: any) => {
     setCustomerSearch(customer.phone)
+    setCustomerNameSearch(customer.name)
     if (editingOrder) {
-      setEditingOrder({ ...editingOrder, customerPhone: customer.phone })
+      setEditingOrder({ 
+        ...editingOrder, 
+        customerPhone: customer.phone,
+        customerName: customer.name
+      })
     }
+    setCustomerSuggestions([])
+    setCustomerNameSuggestions([])
+  }
+
+  const handleCustomerNameSearch = async (value: string) => {
+    setCustomerNameSearch(value)
+    if (editingOrder) {
+      setEditingOrder({ ...editingOrder, customerName: value })
+    }
+    
+    if (value.length >= 2) {
+      const results = await searchCustomers(value)
+      setCustomerNameSuggestions(results.slice(0, 5))
+    } else {
+      setCustomerNameSuggestions([])
+    }
+  }
+
+  const handleSelectCustomerByName = (customer: any) => {
+    setCustomerNameSearch(customer.name)
+    setCustomerSearch(customer.phone)
+    if (editingOrder) {
+      setEditingOrder({ 
+        ...editingOrder, 
+        customerPhone: customer.phone,
+        customerName: customer.name
+      })
+    }
+    setCustomerNameSuggestions([])
     setCustomerSuggestions([])
   }
 
@@ -100,6 +138,8 @@ export default function OrdersList() {
       setEditingOrder(null)
       setCustomerSearch('')
       setCustomerSuggestions([])
+      setCustomerNameSearch('')
+      setCustomerNameSuggestions([])
     } catch (error) {
       alert('Error al actualizar la orden')
     } finally {
@@ -112,6 +152,8 @@ export default function OrdersList() {
     setEditingOrder(null)
     setCustomerSearch('')
     setCustomerSuggestions([])
+    setCustomerNameSearch('')
+    setCustomerNameSuggestions([])
   }
 
   const handleCsvImport = async () => {
@@ -222,7 +264,7 @@ export default function OrdersList() {
         // Crear cliente si no existe
         if (customerName && customerName.trim() && user) {
           
-          // Buscar directamente en Firebase en lugar del cache
+          // Buscar en Firebase
           const existingCustomers = await searchCustomers(customerName)
           const existingCustomer = existingCustomers.find(c => c.name.toLowerCase() === customerName.toLowerCase())
           
@@ -567,17 +609,17 @@ export default function OrdersList() {
                     <div className="flex justify-between items-center mt-6">
                       <button
                         onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1}
+                        disabled={currentPage === 1 || loading}
                         className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
                       >
                         Anterior
                       </button>
                       <span className="text-sm text-gray-700">
-                        Página {currentPage}
+                        Página {currentPage} - {sales.length} órdenes {hasMore ? '(hay más)' : '(última página)'}
                       </span>
                       <button
                         onClick={() => goToPage(currentPage + 1)}
-                        disabled={!hasMore}
+                        disabled={!hasMore || loading}
                         className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
                       >
                         Siguiente
@@ -683,6 +725,34 @@ export default function OrdersList() {
                       )}
                     </>
                   )}
+
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre del Cliente
+                    </label>
+                    <input
+                      type="text"
+                      value={customerNameSearch}
+                      onChange={(e) => handleCustomerNameSearch(e.target.value)}
+                      placeholder="Buscar por nombre..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    
+                    {customerNameSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {customerNameSuggestions.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => handleSelectCustomerByName(customer)}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium">{customer.name}</div>
+                            <div className="text-sm text-gray-600">{customer.phone}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">

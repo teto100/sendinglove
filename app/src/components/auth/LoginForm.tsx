@@ -3,16 +3,12 @@
 import { useState } from 'react'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-
+import { doc, getDoc } from 'firebase/firestore'
 export default function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const isOnline = useOnlineStatus()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,24 +18,9 @@ export default function LoginForm() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       
-      // Store login time
       const loginTime = new Date()
-      localStorage.setItem('loginTime', loginTime.toISOString())
       
-      // Log login activity
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid))
-      const userData = userDoc.data()
-      
-      await addDoc(collection(db, 'activities'), {
-        type: 'user_login',
-        userId: userCredential.user.uid,
-        userName: userData?.name || email,
-        userRole: userData?.role || 'unknown',
-        description: `Usuario inició sesión: ${userData?.name || email}`,
-        metadata: { email, loginTime: loginTime.toISOString() },
-        timestamp: loginTime,
-        userAgent: navigator.userAgent
-      })
+
     } catch (error: any) {
       setError('Credenciales inválidas')
     } finally {

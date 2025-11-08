@@ -7,11 +7,11 @@ import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import PermissionButton from '@/components/ui/PermissionButton'
 import LoadingModal from '@/components/ui/LoadingModal'
-import { useActivityLogger } from '@/hooks/useActivityLogger'
+
 
 export default function SupplierManagement() {
   const { suppliers, loading, createSupplier, updateSupplier, deleteSupplier } = useSuppliers()
-  const { logActivity } = useActivityLogger()
+
   const [showForm, setShowForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [operationLoading, setOperationLoading] = useState(false)
@@ -37,11 +37,7 @@ export default function SupplierManagement() {
     
     setOperationLoading(false)
     if (result.success) {
-      await logActivity({
-        type: 'supplier_created',
-        description: `Proveedor creado: ${formData.name}`,
-        metadata: { name: formData.name, email: formData.email }
-      })
+
       setShowForm(false)
       setFormData({ name: '', contactName: '' })
       window.location.reload()

@@ -14,31 +14,31 @@ export function usePermissions() {
   const [loading, setLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const fetchUserRoleAndPermissions = async () => {
-    if (user) {
-      try {
-        // Cargar rol del usuario
-        const userDoc = await getDoc(doc(db, 'users', user.uid))
-        if (userDoc.exists()) {
-          const role = userDoc.data().role
-          setUserRole(role)
-          
-          // Cargar permisos desde system/permissions
-          const permissionsDoc = await getDoc(doc(db, 'system', 'permissions'))
-          if (permissionsDoc.exists()) {
-            const permsData = permissionsDoc.data()
-            setPermissions(permsData)
-          }
-        }
-      } catch (error) {
-        // Silent error handling
-      }
-    }
-    setLoading(false)
-  }
-
   useEffect(() => {
-    fetchUserRoleAndPermissions()
+    const fetchData = async () => {
+      if (user) {
+        try {
+          // Cargar rol del usuario
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          if (userDoc.exists()) {
+            const role = userDoc.data().role
+            setUserRole(role)
+            
+            // Cargar permisos desde system/permissions
+            const permissionsDoc = await getDoc(doc(db, 'system', 'permissions'))
+            if (permissionsDoc.exists()) {
+              const permsData = permissionsDoc.data()
+              setPermissions(permsData)
+            }
+          }
+        } catch (error) {
+          // Silent error handling
+        }
+      }
+      setLoading(false)
+    }
+
+    fetchData()
   }, [user, refreshTrigger])
 
   const refreshPermissions = () => {

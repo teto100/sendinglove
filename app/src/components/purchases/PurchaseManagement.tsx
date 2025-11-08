@@ -12,7 +12,7 @@ import LoadingModal from '@/components/ui/LoadingModal'
 const categories = ['Frutas', 'Carnes', 'Lácteos', 'Verduras', 'Granos', 'Condimentos', 'Bebidas', 'Acompañamientos', 'Otros']
 
 export default function PurchaseManagement() {
-  const { purchases, loading, createPurchase, updatePurchase, deletePurchase, forceRefreshFromFirebase } = usePurchases()
+  const { purchases, loading, currentPage, hasMore, createPurchase, updatePurchase, deletePurchase, goToPage } = usePurchases()
   const { suppliers } = useSuppliers()
   const [showForm, setShowForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
@@ -158,17 +158,7 @@ export default function PurchaseManagement() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Gestión de Compras de Almacén</h1>
             <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  localStorage.removeItem('purchases_cache')
-                  localStorage.removeItem('purchases_version')
-                  forceRefreshFromFirebase()
-                  setTimeout(() => window.location.reload(), 500)
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-              >
-                🔄 Actualizar desde Firebase
-              </button>
+
               <PermissionButton
                 module="purchases"
                 permission="create"
@@ -674,11 +664,7 @@ export default function PurchaseManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {purchases.sort((a, b) => {
-                  const dateA = a.purchaseDate?.toDate ? a.purchaseDate.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.purchaseDate || a.createdAt))
-                  const dateB = b.purchaseDate?.toDate ? b.purchaseDate.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.purchaseDate || b.createdAt))
-                  return dateB.getTime() - dateA.getTime()
-                }).map((purchase) => (
+                {purchases.map((purchase) => (
                   <tr key={purchase.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-xs text-gray-500 font-mono">{purchase.id}</div>
@@ -745,6 +731,27 @@ export default function PurchaseManagement() {
                 ))}
               </tbody>
             </table>
+
+            {/* Paginación */}
+            <div className="flex justify-between items-center mt-6 px-6 pb-6">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-gray-700">
+                Página {currentPage} - {purchases.length} compras {hasMore ? '(hay más)' : '(última página)'}
+              </span>
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={!hasMore || loading}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50"
+              >
+                Siguiente
+              </button>
+            </div>
           </div>
         </div>
       </div>

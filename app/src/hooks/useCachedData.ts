@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { cacheManager } from '@/lib/cache'
 
 export function useCachedData<T>(
   collectionName: string,
@@ -14,99 +13,53 @@ export function useCachedData<T>(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchData = useCallback(async (): Promise<T[]> => {
+  useEffect(() => {
     const q = orderByField 
       ? query(collection(db, collectionName), orderBy(orderByField, orderDirection || 'asc'))
       : collection(db, collectionName)
     
-    return new Promise((resolve, reject) => {
-      const unsubscribe = onSnapshot(q, 
-        (snapshot) => {
-          const items = snapshot.docs.map(doc => {
-            const data = doc.data()
-            const convertedData = { ...data }
-            
-            // Convertir todos los campos de fecha de Firestore Timestamp a Date
-            Object.keys(data).forEach(key => {
-              if (data[key]?.toDate && typeof data[key].toDate === 'function') {
-                convertedData[key] = data[key].toDate()
-              }
-            })
-            
-            return {
-              id: doc.id,
-              ...convertedData
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const items = snapshot.docs.map(doc => {
+          const data = doc.data()
+          const convertedData = { ...data }
+          
+          // Convertir campos de fecha de Firestore Timestamp a Date
+          Object.keys(data).forEach(key => {
+            if (data[key]?.toDate && typeof data[key].toDate === 'function') {
+              convertedData[key] = data[key].toDate()
             }
-          }) as T[]
-          unsubscribe()
-          resolve(items)
-        },
-        (error) => {
-          unsubscribe()
-          reject(error)
-        }
-      )
-    })
+          })
+          
+          return {
+            id: doc.id,
+            ...convertedData
+          }
+        }) as T[]
+        
+        setData(items)
+        setLoading(false)
+        setError(null)
+      },
+      (err) => {
+        setError(err instanceof Error ? err.message : 'Error loading data')
+        setLoading(false)
+      }
+    )
+
+    return () => unsubscribe()
   }, [collectionName, orderByField, orderDirection])
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const cachedData = await cacheManager.getVersionedData(
-        collectionName,
-        fetchData
-      )
-      
-      setData(cachedData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading data')
-    } finally {
-      setLoading(false)
-    }
-  }, [collectionName])
-
-  useEffect(() => {
-    loadData()
-
-    // Escuchar cambios para invalidar caché (cada 30 segundos)
-    const unsubscribe = cacheManager.watchCollection(collectionName, () => {
-      loadData()
-    })
-
-    return () => {
-      cacheManager.stopWatching(collectionName)
-    }
-  }, [collectionName])
-
-  const invalidateCache = useCallback(() => {
-    cacheManager.invalidateCache(collectionName)
-    loadData()
-  }, [collectionName, loadData])
-
-  const forceRefresh = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      // Limpiar caché y forzar recarga
-      cacheManager.invalidateCache(collectionName)
-      const freshData = await fetchData()
-      setData(freshData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading data')
-    } finally {
-      setLoading(false)
-    }
-  }, [collectionName, fetchData])
+  const refresh = () => {
+    setLoading(true)
+    // El useEffect se encargará de recargar los datos
+  }
 
   return {
     data,
     loading,
     error,
-    refresh: loadData,
-    invalidateCache,
-    forceRefresh
+    refresh,
+    forceRefresh: refresh
   }
 }

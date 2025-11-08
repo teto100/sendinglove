@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import Header from '@/components/layout/Header'
 import { usePermissions } from '@/hooks/usePermissions'
 import Link from 'next/link'
-import ActivityLog from '@/components/activities/ActivityLog'
+
 import LoadingModal from '@/components/ui/LoadingModal'
 
 export default function Dashboard() {
@@ -86,9 +86,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="mt-8">
-            <ActivityLog />
-          </div>
+
         </div>
       </main>
     </div>

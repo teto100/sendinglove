@@ -1,17 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, where } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, where, limit, startAfter, getDocs } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { InventoryItem, InventoryMovement, CreateInventoryMovementData } from '@/types/inventory'
 import { useProducts } from './useProducts'
 import { sendStockAlert } from '@/lib/notifications'
 
-export function useInventory() {
+export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
+  const [totalMovements, setTotalMovements] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [movementsLoading, setMovementsLoading] = useState(false)
   const [firebaseUser] = useAuthState(auth)
   const { products } = useProducts()
 
@@ -34,20 +36,79 @@ export function useInventory() {
   }, [])
 
   useEffect(() => {
-    const q = query(collection(db, 'inventory-movements'), orderBy('createdAt', 'desc'))
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const movementsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
-      })) as InventoryMovement[]
-      
-      setMovements(movementsData.slice(0, 50)) // Últimos 50 movimientos
-    })
+    const loadMovements = async () => {
+      setMovementsLoading(true)
+      try {
+        if (searchTerm) {
+          // Con búsqueda: traer más datos y filtrar
+          const q = query(
+            collection(db, 'inventory-movements'),
+            orderBy('createdAt', 'desc'),
+            limit(500) // Traer más para filtrar
+          )
+          
+          const snapshot = await getDocs(q)
+          const allMovements = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date()
+          })) as InventoryMovement[]
+          
+          const filteredMovements = allMovements.filter(movement => 
+            movement.productName.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          
+          const startIndex = (page - 1) * pageSize
+          const paginatedMovements = filteredMovements.slice(startIndex, startIndex + pageSize)
+          
+          setMovements(paginatedMovements)
+          setTotalMovements(filteredMovements.length)
+        } else {
+          // Sin búsqueda: paginación real
+          const totalQuery = query(collection(db, 'inventory-movements'))
+          const totalSnapshot = await getDocs(totalQuery)
+          setTotalMovements(totalSnapshot.size)
+          
+          const q = query(
+            collection(db, 'inventory-movements'),
+            orderBy('createdAt', 'desc'),
+            limit(pageSize)
+          )
+          
+          let finalQuery = q
+          if (page > 1) {
+            const prevQuery = query(
+              collection(db, 'inventory-movements'),
+              orderBy('createdAt', 'desc'),
+              limit((page - 1) * pageSize)
+            )
+            const prevSnapshot = await getDocs(prevQuery)
+            const lastDoc = prevSnapshot.docs[prevSnapshot.docs.length - 1]
+            if (lastDoc) {
+              finalQuery = query(q, startAfter(lastDoc))
+            }
+          }
+          
+          const snapshot = await getDocs(finalQuery)
+          const movementsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date()
+          })) as InventoryMovement[]
+          
+          setMovements(movementsData)
+        }
+      } catch (error) {
+        console.error('Error loading movements:', error)
+        setMovements([])
+        setTotalMovements(0)
+      } finally {
+        setMovementsLoading(false)
+      }
+    }
 
-    return () => unsubscribe()
-  }, [])
+    loadMovements()
+  }, [page, pageSize, searchTerm])
 
   const createMovement = async (movementData: CreateInventoryMovementData & { dryRun?: boolean }): Promise<string> => {
     if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
@@ -160,7 +221,9 @@ export function useInventory() {
   return {
     inventory,
     movements,
+    totalMovements,
     loading,
+    movementsLoading,
     createMovement,
     updateStockLimits,
     getLowStockItems

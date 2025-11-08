@@ -5,6 +5,72 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useRewardsPrizes } from '@/hooks/useRewardsPrizes'
 
+function TopCustomers() {
+  const [topCustomers, setTopCustomers] = useState<any[]>([])
+  
+  useEffect(() => {
+    loadTopCustomers()
+  }, [])
+  
+  const loadTopCustomers = async () => {
+    try {
+      const customersSnap = await getDocs(
+        query(collection(db, 'customers'), where('programa_referidos', '==', true))
+      )
+      
+      const customers = customersSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        totalPoints: (doc.data().puntos_compras || 0) + (doc.data().puntos_referidos || 0)
+      }))
+      
+
+      
+      // Ordenar por puntos totales y tomar top 5
+      const sorted = customers
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .slice(0, 5)
+      
+      setTopCustomers(sorted)
+    } catch (error) {
+      console.error('Error loading top customers:', error)
+    }
+  }
+  
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-medium mb-4">🎆 Clientes Destacados</h3>
+      <div className="space-y-3">
+        {topCustomers.map((customer, index) => (
+          <div key={customer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                index === 0 ? 'bg-yellow-500' : 
+                index === 1 ? 'bg-gray-400' : 
+                index === 2 ? 'bg-orange-600' : 'bg-blue-500'
+              }`}>
+                {index + 1}
+              </div>
+              <div>
+                <div className="font-medium">{customer.name}</div>
+                <div className="text-sm text-gray-500">
+                  {customer.phone || 'Sin teléfono'}
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-semibold">{customer.totalPoints} puntos</div>
+              <div className="text-sm text-gray-500">
+                C: {customer.puntos_compras || 0} | R: {customer.puntos_referidos || 0}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface Stats {
   totalCustomers: number
   activeCustomers: number
@@ -222,6 +288,9 @@ export default function RewardsStats() {
           </div>
         </div>
       </div>
+
+      {/* Clientes Destacados */}
+      <TopCustomers />
 
       {/* ROI Estimado */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">

@@ -7,7 +7,6 @@ import { getFunctions } from 'firebase/functions'
 import { db, auth } from '@/lib/firebase'
 import { User, CreateUserData } from '@/types/user'
 import { useCachedData } from './useCachedData'
-import { VersionManager } from '@/utils/versionManager'
 
 export function useUsers() {
   const { data: users, loading, refresh, forceRefresh } = useCachedData<User>('users', 'name')
@@ -56,7 +55,6 @@ export function useUsers() {
       })
       
       
-      await VersionManager.updateVersion('users')
       return { success: true, uid: result.uid }
     } catch (error: any) {
       
@@ -96,7 +94,6 @@ export function useUsers() {
       }
       
       await updateDoc(doc(db, 'users', userId), updates)
-      await VersionManager.updateVersion('users')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -116,7 +113,6 @@ export function useUsers() {
       }
       
       await deleteDoc(doc(db, 'users', userId))
-      await VersionManager.updateVersion('users')
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -125,57 +121,7 @@ export function useUsers() {
     }
   }
 
-  const syncUserWithAuth = async (email: string, authUID: string) => {
-    try {
-      setOperationLoading(true)
-      
-      // Buscar usuario por email
-      const tempUser = users.find(u => u.email === email)
-      if (!tempUser) {
-        return { success: false, error: 'Usuario no encontrado' }
-      }
-      
-      // Crear documento con UID de Auth
-      await setDoc(doc(db, 'users', authUID), {
-        ...tempUser,
-        id: authUID,
-        tempUser: false,
-        syncedAt: new Date()
-      })
-      
-      // Eliminar documento temporal
-      await deleteDoc(doc(db, 'users', tempUser.id))
-      
-      await VersionManager.updateVersion('users')
-      return { success: true }
-    } catch (error: any) {
-      return { success: false, error: error.message }
-    } finally {
-      setOperationLoading(false)
-    }
-  }
 
-  const clearCache = async () => {
-    localStorage.removeItem('cache_users')
-    localStorage.removeItem('cache_version_users')
-    
-    setOperationLoading(true)
-    try {
-      const q = query(collection(db, 'users'), orderBy('name'))
-      const snapshot = await getDocs(q)
-      const freshUsers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.() || new Date()
-      })) as User[]
-      
-      window.location.reload()
-    } catch (error) {
-      alert('Error al cargar usuarios: ' + error)
-    } finally {
-      setOperationLoading(false)
-    }
-  }
 
   return {
     users,
@@ -183,8 +129,6 @@ export function useUsers() {
     createUser,
     updateUser,
     deleteUser,
-    syncUserWithAuth,
-    refresh,
-    clearCache
+    refresh
   }
 }

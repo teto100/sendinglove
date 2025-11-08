@@ -4,9 +4,9 @@ import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useActivityLogger } from '@/hooks/useActivityLogger'
+
 import { useCurrentUser } from '@/hooks/useCurrentUser'
-import { useCacheStatus } from '@/hooks/useCacheStatus'
+
 import { useDeviceType } from '@/hooks/useDeviceType'
 import { usePermissions } from '@/hooks/usePermissions'
 import { colors } from '@/styles/colors'
@@ -14,9 +14,9 @@ import { useEffect, useState, useMemo } from 'react'
 
 export default function Header() {
   const router = useRouter()
-  const { logActivity } = useActivityLogger()
+
   const { user, loginTime } = useCurrentUser()
-  const cacheStatus = useCacheStatus()
+
   const [mounted, setMounted] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
@@ -27,12 +27,7 @@ export default function Header() {
   useEffect(() => {
     setMounted(true)
     
-    // Registrar service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // Silent fail
-      })
-    }
+
 
     // Capturar evento de instalación PWA
     const handleBeforeInstallPrompt = (e: any) => {
@@ -76,22 +71,9 @@ export default function Header() {
     
     setIsLoggingOut(true)
     try {
-      // Log activity first
-      await logActivity({
-        type: 'user_logout',
-        description: 'Usuario cerró sesión'
-      })
+
       
-      // Clear local data
-      localStorage.removeItem('loginTime')
-      localStorage.clear()
-      sessionStorage.clear()
-      
-      // Clear browser cache
-      if ('caches' in window) {
-        const cacheNames = await caches.keys()
-        await Promise.all(cacheNames.map(name => caches.delete(name)))
-      }
+
       
       // Sign out from Firebase
       await signOut(auth)
@@ -106,8 +88,6 @@ export default function Header() {
       
     } catch (error) {
       // Force redirect even on error
-      localStorage.clear()
-      sessionStorage.clear()
       window.location.href = '/'
     }
   }
@@ -188,26 +168,7 @@ export default function Header() {
                   </div>
                 )}
                 
-                {mounted && (
-                  <div className="bg-blue-700 px-3 py-2 rounded-md">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        cacheStatus.isUsingCache ? 'bg-green-400' : 'bg-orange-400'
-                      }`}></div>
-                      <span className="text-white text-xs font-medium">
-                        {cacheStatus.isUsingCache ? 'Caché' : 'Firebase'}
-                      </span>
-                    </div>
-                    {cacheStatus.lastFirebaseQuery && (
-                      <div className="text-blue-200 text-xs mt-1">
-                        Última: {cacheStatus.lastFirebaseQuery.toLocaleTimeString()}
-                      </div>
-                    )}
-                    <div className="text-blue-200 text-xs mt-1">
-                      C:{cacheStatus.cacheHits} | F:{cacheStatus.firebaseQueries}
-                    </div>
-                  </div>
-                )}
+
                 
                 <button
                   onClick={handleLogout}

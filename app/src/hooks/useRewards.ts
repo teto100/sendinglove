@@ -25,7 +25,7 @@ import {
   CustomerRewardsSearch 
 } from '@/types/rewards'
 import { Customer } from '@/types/customer'
-import { initializeRewardsPermissions } from '@/utils/initializeRewards'
+
 
 export const useRewards = () => {
   const [loading, setLoading] = useState(false)
@@ -71,32 +71,22 @@ export const useRewards = () => {
 
   // Habilitar cliente en programa
   const enableCustomerRewards = async (customerId: string, referentPhone?: string, referentName?: string) => {
-    console.log('🏆 [REWARDS] Iniciando habilitación de programa de premios')
-    console.log('🏆 [REWARDS] Customer ID:', customerId)
-    console.log('🏆 [REWARDS] Referent Phone:', referentPhone)
-    console.log('🏆 [REWARDS] Referent Name:', referentName)
-    
     setLoading(true)
     try {
-      console.log('🏆 [REWARDS] Obteniendo datos del cliente...')
       const customerRef = doc(db, 'customers', customerId)
       const customerSnap = await getDoc(customerRef)
       
       if (!customerSnap.exists()) {
-        console.error('❌ [REWARDS] Cliente no encontrado')
         throw new Error('Cliente no encontrado')
       }
       
       const customerData = customerSnap.data() as Customer
-      console.log('🏆 [REWARDS] Datos del cliente:', customerData)
       
       // Validar que el cliente tenga teléfono
       if (!customerData.phone || customerData.phone.trim() === '') {
-        console.error('❌ [REWARDS] Cliente sin teléfono')
         throw new Error('El cliente debe tener un número de teléfono para participar en el programa de premios')
       }
       
-      console.log('🏆 [REWARDS] Preparando datos de actualización...')
       const updateData: Partial<Customer> = {
         programa_referidos: true,
         puntos_compras: 0,
@@ -104,23 +94,19 @@ export const useRewards = () => {
         referidos: 0,
         terminos_condiciones: false,
         geolocalizacion_aceptada: false,
-        fecha_habilitacion_premios: (await import('@/utils/timezone')).getLimaDate(),
-        _timestamp: Date.now() // Evitar cache
+        fecha_habilitacion_premios: (await import('@/utils/timezone')).getLimaDate()
       }
 
       // Solo agregar campos opcionales si tienen valor
       if (referentPhone) {
-        console.log('🏆 [REWARDS] Agregando teléfono de referente:', referentPhone)
         updateData.referente_cel = Number(referentPhone)
       }
       if (referentName) {
-        console.log('🏆 [REWARDS] Agregando nombre de referente:', referentName)
         updateData.referente_nombre = referentName
       }
 
       // Si tiene referente, buscar el ID
       if (referentPhone) {
-        console.log('🏆 [REWARDS] Buscando ID del referente...')
         const customersQuery = query(
           collection(db, 'customers'),
           where('phone', '==', referentPhone),
@@ -129,28 +115,16 @@ export const useRewards = () => {
         const referentSnap = await getDocs(customersQuery)
         if (!referentSnap.empty) {
           updateData.referente_id = referentSnap.docs[0].id
-          console.log('🏆 [REWARDS] ID del referente encontrado:', referentSnap.docs[0].id)
-        } else {
-          console.log('⚠️ [REWARDS] Referente no encontrado o no está en el programa')
         }
       }
-
-      console.log('🏆 [REWARDS] Datos finales a actualizar:', updateData)
-      console.log('🏆 [REWARDS] Actualizando documento en Firebase...')
       
-      await updateDoc(customerRef, {
-        ...updateData,
-        _timestamp: Date.now() // Evitar cache
-      })
+      await updateDoc(customerRef, updateData)
       
-      console.log('✅ [REWARDS] Cliente habilitado exitosamente en el programa de premios')
       return true
     } catch (error) {
-      console.error('❌ [REWARDS] Error enabling customer rewards:', error)
       return false
     } finally {
       setLoading(false)
-      console.log('🏆 [REWARDS] Proceso finalizado')
     }
   }
 
@@ -361,11 +335,7 @@ export const useRewards = () => {
   }
 
   useEffect(() => {
-    const initialize = async () => {
-      await initializeRewardsPermissions()
-      await initializeConfig()
-    }
-    initialize()
+    initializeConfig()
   }, [])
 
   return {

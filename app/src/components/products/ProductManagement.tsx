@@ -8,13 +8,13 @@ import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import PermissionButton from '@/components/ui/PermissionButton'
 import LoadingModal from '@/components/ui/LoadingModal'
-import { useActivityLogger } from '@/hooks/useActivityLogger'
+
 import ProductImage from '@/components/ui/ProductImage'
 
 export default function ProductManagement() {
-  const { products, loading, createProduct, updateProduct, deleteProduct, forceRefreshFromFirebase } = useProducts()
+  const { products, loading, createProduct, updateProduct, deleteProduct } = useProducts()
   const { categories, createCategory, updateCategory, deleteCategory } = useCategories()
-  const { logActivity } = useActivityLogger()
+
   const [showForm, setShowForm] = useState(false)
   const [operationLoading, setOperationLoading] = useState(false)
   const [formData, setFormData] = useState<CreateProductData>({
@@ -64,11 +64,7 @@ export default function ProductManagement() {
     
     setOperationLoading(false)
     if (result.success) {
-      await logActivity({
-        type: 'product_created',
-        description: `Producto creado: ${formData.name}`,
-        metadata: { sku: result.sku, price: formData.price }
-      })
+
       setShowForm(false)
       setFormData({ name: '', description: '', price: 0, sku: '', categoryId: '', productionCost: 0 })
       window.location.reload()
@@ -82,11 +78,7 @@ export default function ProductManagement() {
     const result = await updateProduct(productId, { active: !currentStatus })
     if (result.success) {
       const product = products.find(p => p.id === productId)
-      await logActivity({
-        type: 'product_updated',
-        description: `Producto ${!currentStatus ? 'activado' : 'desactivado'}: ${product?.name}`,
-        metadata: { productId, newStatus: !currentStatus }
-      })
+
       window.location.reload()
     } else {
       alert('Error: ' + result.error)
@@ -130,8 +122,7 @@ export default function ProductManagement() {
     setOperationLoading(false)
     if (result.success) {
       setShowEditForm(false)
-      // Forzar actualización directa desde Firebase
-      await forceRefreshFromFirebase()
+
     } else {
       alert('Error: ' + result.error)
     }
@@ -203,17 +194,7 @@ export default function ProductManagement() {
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 lg:mb-6 gap-3 lg:gap-0">
             <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Gestión de Productos</h1>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  localStorage.removeItem('cache_products')
-                  localStorage.removeItem('cache_version_products')
-                  forceRefreshFromFirebase()
-                  window.location.reload()
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-              >
-                🔄 Forzar Actualización
-              </button>
+
               <button
                 onClick={() => {
                   const csvContent = [
