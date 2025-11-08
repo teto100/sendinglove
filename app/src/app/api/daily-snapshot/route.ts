@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
     const existingSnap = await getDocs(existingQuery)
     
     if (!existingSnap.empty) {
-      return NextResponse.json({ message: 'Snapshot already exists for today' })
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Snapshot already exists for today' 
+      })
     }
 
     // Obtener cuentas con saldo actual
@@ -48,8 +51,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      date: dateString,
-      accounts 
+      message: 'Daily snapshot completed successfully'
     })
   } catch (error) {
     console.error('Error in daily snapshot:', error)
