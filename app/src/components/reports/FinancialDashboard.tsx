@@ -47,6 +47,7 @@ export default function FinancialDashboard() {
     return lastDay.toISOString().split('T')[0]
   })
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   
   // Funciones para rangos de fechas
   const setCurrentWeek = () => {
@@ -72,9 +73,9 @@ export default function FinancialDashboard() {
   }
   
   const [allSales, setAllSales] = useState([])
+  const [allPurchases, setAllPurchases] = useState([])
   const { sales } = useAllSales() // Mantener para compatibilidad
   const { expenses } = useExpenses()
-  const { purchases } = usePurchases()
   const { customers } = useCustomers()
   
   // Cargar TODAS las ventas sin paginación
@@ -103,6 +104,31 @@ export default function FinancialDashboard() {
     loadAllSales()
   }, [])
 
+  // Cargar TODAS las compras sin paginación
+  useEffect(() => {
+    const loadAllPurchases = async () => {
+      try {
+        const q = query(
+          collection(db, 'purchases'),
+          orderBy('createdAt', 'desc')
+        )
+        
+        const snapshot = await getDocs(q)
+        const purchasesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date()
+        }))
+        
+        setAllPurchases(purchasesData)
+      } catch (error) {
+        setAllPurchases([])
+      }
+    }
+    
+    loadAllPurchases()
+  }, [])
+
   // Filtrar datos por rango de fechas
   const filteredSales = useMemo(() => {
     const from = new Date(dateFrom + 'T00:00:00')
@@ -119,9 +145,35 @@ export default function FinancialDashboard() {
 
   // Métricas principales
   const metrics = useMemo(() => {
-    const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0)
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-    const totalPurchases = purchases.reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0)
+    const totalSales = filteredSales.reduce((sum, sale) => {
+      // Calcular total real basado en métodos de pago
+      if (sale.paymentMethods && sale.paymentMethods.length > 0) {
+        return sum + sale.paymentMethods.reduce((pmSum, pm) => pmSum + (pm.amount || 0), 0)
+      }
+      return sum + sale.total
+    }, 0)
+    
+    // Filtrar gastos por rango de fechas
+    const totalExpenses = expenses.filter(expense => {
+      const expenseDate = new Date(expense.createdAt)
+      const year = expenseDate.getFullYear()
+      const month = String(expenseDate.getMonth() + 1).padStart(2, '0')
+      const day = String(expenseDate.getDate()).padStart(2, '0')
+      const expenseDateKey = `${year}-${month}-${day}`
+      
+      return expenseDateKey >= dateFrom && expenseDateKey <= dateTo
+    }).reduce((sum, expense) => sum + expense.amount, 0)
+    
+    // Filtrar compras por rango de fechas
+    const totalPurchases = allPurchases.filter(purchase => {
+      const purchaseDate = new Date(purchase.createdAt)
+      const year = purchaseDate.getFullYear()
+      const month = String(purchaseDate.getMonth() + 1).padStart(2, '0')
+      const day = String(purchaseDate.getDate()).padStart(2, '0')
+      const purchaseDateKey = `${year}-${month}-${day}`
+      
+      return purchaseDateKey >= dateFrom && purchaseDateKey <= dateTo
+    }).reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0)
     
     const result = {
       totalSales,
@@ -132,13 +184,13 @@ export default function FinancialDashboard() {
       avgTicket: filteredSales.length > 0 ? totalSales / filteredSales.length : 0
     }
     return result
-  }, [filteredSales, expenses, purchases])
+  }, [filteredSales, expenses, allPurchases, dateFrom, dateTo])
 
   // Ventas por día
   const dailySales = useMemo(() => {
     try {
-      const from = new Date(dateFrom)
-      const to = new Date(dateTo)
+      const from = new Date(dateFrom + 'T00:00:00')
+      const to = new Date(dateTo + 'T23:59:59')
       const salesByDay = {}
       
       // Crear todas las fechas en el rango
@@ -153,15 +205,32 @@ export default function FinancialDashboard() {
       // Llenar con datos reales
       filteredSales.forEach(sale => {
         const saleDate = new Date(sale.createdAt)
-        const dateKey = saleDate.toISOString().split('T')[0]
+        const year = saleDate.getFullYear()
+        const month = String(saleDate.getMonth() + 1).padStart(2, '0')
+        const day = String(saleDate.getDate()).padStart(2, '0')
+        const dateKey = `${year}-${month}-${day}`
+        
+
         
         if (salesByDay[dateKey]) {
-          salesByDay[dateKey].sales += sale.total
+          // Calcular total real basado en métodos de pago
+          let realTotal = 0
+          if (sale.paymentMethods && sale.paymentMethods.length > 0) {
+            realTotal = sale.paymentMethods.reduce((sum, pm) => sum + (pm.amount || 0), 0)
+          } else {
+            realTotal = sale.total
+          }
+          
+          salesByDay[dateKey].sales += realTotal
           salesByDay[dateKey].count += 1
         }
       })
       
-      return Object.values(salesByDay)
+      const result = Object.values(salesByDay)
+      
+
+      
+      return result
     } catch (error) {
       return []
     }
@@ -179,14 +248,26 @@ export default function FinancialDashboard() {
       const salesByDay = {}
       filteredSales.forEach(sale => {
         const saleDate = new Date(sale.createdAt)
-        const dateKey = saleDate.toISOString().split('T')[0]
+        const year = saleDate.getFullYear()
+        const month = String(saleDate.getMonth() + 1).padStart(2, '0')
+        const day = String(saleDate.getDate()).padStart(2, '0')
+        const dateKey = `${year}-${month}-${day}`
         const dayName = saleDate.toLocaleDateString('es-PE', { weekday: 'long' })
         const displayDate = saleDate.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })
         
         if (!salesByDay[dateKey]) {
           salesByDay[dateKey] = { day: `${dayName} ${displayDate}`, date: dateKey, sales: 0 }
         }
-        salesByDay[dateKey].sales += sale.total
+        
+        // Calcular total real basado en métodos de pago
+        let realTotal = 0
+        if (sale.paymentMethods && sale.paymentMethods.length > 0) {
+          realTotal = sale.paymentMethods.reduce((sum, pm) => sum + (pm.amount || 0), 0)
+        } else {
+          realTotal = sale.total
+        }
+        
+        salesByDay[dateKey].sales += realTotal
       })
       
       const days = Object.values(salesByDay)
@@ -207,7 +288,16 @@ export default function FinancialDashboard() {
         if (!salesByWeekday[dayName]) {
           salesByWeekday[dayName] = { day: dayName, sales: 0 }
         }
-        salesByWeekday[dayName].sales += sale.total
+        
+        // Calcular total real basado en métodos de pago
+        let realTotal = 0
+        if (sale.paymentMethods && sale.paymentMethods.length > 0) {
+          realTotal = sale.paymentMethods.reduce((sum, pm) => sum + (pm.amount || 0), 0)
+        } else {
+          realTotal = sale.total
+        }
+        
+        salesByWeekday[dayName].sales += realTotal
       })
       
       const days = Object.values(salesByWeekday)
@@ -224,14 +314,16 @@ export default function FinancialDashboard() {
 
   // Filtrar compras por rango de fechas
   const filteredPurchases = useMemo(() => {
-    const from = new Date(dateFrom + 'T00:00:00')
-    const to = new Date(dateTo + 'T23:59:59')
-    
-    return purchases.filter(purchase => {
+    return allPurchases.filter(purchase => {
       const purchaseDate = new Date(purchase.createdAt)
-      return purchaseDate >= from && purchaseDate <= to
+      const year = purchaseDate.getFullYear()
+      const month = String(purchaseDate.getMonth() + 1).padStart(2, '0')
+      const day = String(purchaseDate.getDate()).padStart(2, '0')
+      const purchaseDateKey = `${year}-${month}-${day}`
+      
+      return purchaseDateKey >= dateFrom && purchaseDateKey <= dateTo
     })
-  }, [purchases, dateFrom, dateTo])
+  }, [allPurchases, dateFrom, dateTo])
 
   // Productos más vendidos
   const topProducts = useMemo(() => {
@@ -334,85 +426,7 @@ export default function FinancialDashboard() {
     return profitableProducts
   }, [filteredSales, products])
 
-  // Cargar movimientos de inventario
-  const [inventoryMovements, setInventoryMovements] = useState([])
-  
-  useEffect(() => {
-    const loadInventoryMovements = async () => {
-      try {
-        const q = query(
-          collection(db, 'inventory-movements'),
-          orderBy('createdAt', 'desc')
-        )
-        
-        const snapshot = await getDocs(q)
-        const movementsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date()
-        }))
-        
-        setInventoryMovements(movementsData)
-      } catch (error) {
-        setInventoryMovements([])
-      }
-    }
-    
-    loadInventoryMovements()
-  }, [])
 
-  // Análisis de movimiento de inventario
-  const inventoryMovement = useMemo(() => {
-    const from = new Date(dateFrom + 'T00:00:00')
-    const to = new Date(dateTo + 'T23:59:59')
-    
-    // Filtrar solo movimientos de entrada en el rango de fechas
-    const filteredMovements = inventoryMovements.filter(movement => {
-      const movementDate = new Date(movement.createdAt)
-      return movementDate >= from && movementDate <= to && movement.type === 'entrada'
-    })
-    
-    const productMovement = {}
-    
-    // Contar registros de entrada por producto
-    filteredMovements.forEach(movement => {
-      if (!productMovement[movement.productName]) {
-        productMovement[movement.productName] = { 
-          name: movement.productName, 
-          registrations: 0, 
-          totalQuantity: 0 
-        }
-      }
-      productMovement[movement.productName].registrations += 1
-      productMovement[movement.productName].totalQuantity += movement.quantity
-    })
-    
-    const products = Object.values(productMovement)
-    const mostMoved = products.sort((a: any, b: any) => b.registrations - a.registrations).slice(0, 5)
-    const leastMoved = products.sort((a: any, b: any) => a.registrations - b.registrations).slice(0, 5)
-    
-    return { mostMoved, leastMoved }
-  }, [inventoryMovements, dateFrom, dateTo])
-
-  // Análisis de compras frecuentes
-  const purchaseAnalysis = useMemo(() => {
-    const purchaseFrequency = {}
-    
-    filteredPurchases.forEach(purchase => {
-      const productName = purchase.productName || 'Producto sin nombre'
-      if (!purchaseFrequency[productName]) {
-        purchaseFrequency[productName] = { name: productName, purchases: 0, totalCost: 0 }
-      }
-      purchaseFrequency[productName].purchases += 1
-      purchaseFrequency[productName].totalCost += purchase.totalAmount || purchase.totalCost || 0
-    })
-    
-    const products = Object.values(purchaseFrequency)
-    const mostFrequent = products.sort((a: any, b: any) => b.purchases - a.purchases).slice(0, 5)
-    const leastFrequent = products.sort((a: any, b: any) => a.purchases - b.purchases).slice(0, 5)
-    
-    return { mostFrequent, leastFrequent }
-  }, [filteredPurchases])
 
   // Ventas por método de pago (soporta múltiples métodos)
   const paymentMethods = useMemo(() => {
@@ -441,6 +455,52 @@ export default function FinancialDashboard() {
     return Object.values(methods)
   }, [filteredSales])
 
+  // Ventas de productos por día
+  const productSalesByDay = useMemo(() => {
+    if (selectedProducts.length === 0) return []
+    
+    const from = new Date(dateFrom + 'T00:00:00')
+    const to = new Date(dateTo + 'T23:59:59')
+    const salesByDay = {}
+    
+    // Crear todas las fechas en el rango
+    const currentDate = new Date(from)
+    while (currentDate <= to) {
+      const year = currentDate.getFullYear()
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getDate()).padStart(2, '0')
+      const dateKey = `${year}-${month}-${day}`
+      const displayDate = currentDate.toLocaleDateString('es-PE', { month: 'short', day: 'numeric' })
+      
+      salesByDay[dateKey] = { date: displayDate }
+      selectedProducts.forEach(product => {
+        salesByDay[dateKey][product] = 0
+      })
+      
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    // Llenar con datos reales
+    filteredSales.forEach(sale => {
+      const saleDate = new Date(sale.createdAt)
+      const year = saleDate.getFullYear()
+      const month = String(saleDate.getMonth() + 1).padStart(2, '0')
+      const day = String(saleDate.getDate()).padStart(2, '0')
+      const dateKey = `${year}-${month}-${day}`
+      
+      if (salesByDay[dateKey]) {
+        sale.items.forEach(item => {
+          const cleanItemName = item.name.replace(/^"+|"+$/g, '').trim()
+          if (selectedProducts.includes(cleanItemName)) {
+            salesByDay[dateKey][cleanItemName] += item.quantity
+          }
+        })
+      }
+    })
+    
+    return Object.values(salesByDay)
+  }, [filteredSales, selectedProducts, dateFrom, dateTo])
+
   // Clientes recurrentes
   const recurringCustomers = useMemo(() => {
     const customerPurchases = {}
@@ -453,8 +513,17 @@ export default function FinancialDashboard() {
         if (!customerPurchases[customerKey]) {
           customerPurchases[customerKey] = { count: 0, total: 0, name: sale.customerName || 'Cliente desconocido' }
         }
+        
+        // Calcular total real basado en métodos de pago
+        let realTotal = 0
+        if (sale.paymentMethods && sale.paymentMethods.length > 0) {
+          realTotal = sale.paymentMethods.reduce((sum, pm) => sum + (pm.amount || 0), 0)
+        } else {
+          realTotal = sale.total
+        }
+        
         customerPurchases[customerKey].count += 1
-        customerPurchases[customerKey].total += sale.total
+        customerPurchases[customerKey].total += realTotal
       }
     })
     
@@ -582,9 +651,16 @@ export default function FinancialDashboard() {
                     labels: paymentMethods.map((item: any) => item.name),
                     datasets: [{
                       data: paymentMethods.map((item: any) => item.value),
-                      backgroundColor: [
-                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
-                      ],
+                      backgroundColor: paymentMethods.map((item: any) => {
+                        switch (item.name) {
+                          case 'Yape': return '#8B5CF6' // Morado
+                          case 'Efectivo': return '#10B981' // Verde
+                          case 'Tarjeta': return '#F59E0B' // Amarillo
+                          case 'Transferencia': return '#3B82F6' // Azul
+                          case 'Plin': return '#EF4444' // Rojo
+                          default: return '#6B7280' // Gris por defecto
+                        }
+                      }),
                       borderWidth: 2,
                       borderColor: '#fff'
                     }]
@@ -900,89 +976,91 @@ export default function FinancialDashboard() {
             </div>
           </div>
 
-          {/* Análisis de Inventario y Compras */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Movimiento de Inventario */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-bold mb-4">Movimiento de Inventario</h3>
-              
-              <div className="mb-6">
-                <h4 className="font-medium text-green-700 mb-3">Productos que Más se Mueven</h4>
-                <div className="space-y-2">
-                  {inventoryMovement.mostMoved.map((product, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-green-50 rounded">
-                      <span className="text-sm font-medium">{product.name}</span>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-green-700">{product.registrations} registros</div>
-                        <div className="text-xs text-gray-500">{product.totalQuantity} unidades</div>
-                      </div>
-                    </div>
-                  ))}
-                  {inventoryMovement.mostMoved.length === 0 && (
-                    <p className="text-gray-500 text-sm">No hay datos</p>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-red-700 mb-3">Productos que Menos se Mueven</h4>
-                <div className="space-y-2">
-                  {inventoryMovement.leastMoved.map((product, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
-                      <span className="text-sm font-medium">{product.name}</span>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-red-700">{product.registrations} registros</div>
-                        <div className="text-xs text-gray-500">{product.totalQuantity} unidades</div>
-                      </div>
-                    </div>
-                  ))}
-                  {inventoryMovement.leastMoved.length === 0 && (
-                    <p className="text-gray-500 text-sm">No hay datos</p>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {/* Análisis de Compras */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-bold mb-4">Frecuencia de Compras</h3>
-              
-              <div className="mb-6">
-                <h4 className="font-medium text-blue-700 mb-3">Compras Más Frecuentes</h4>
-                <div className="space-y-2">
-                  {purchaseAnalysis.mostFrequent.map((purchase, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                      <span className="text-sm font-medium">{purchase.name}</span>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-blue-700">{purchase.purchases} compras</div>
-                        <div className="text-xs text-gray-500">S/ {purchase.totalCost.toFixed(2)}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {purchaseAnalysis.mostFrequent.length === 0 && (
-                    <p className="text-gray-500 text-sm">No hay compras en el período</p>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-orange-700 mb-3">Compras Menos Frecuentes</h4>
-                <div className="space-y-2">
-                  {purchaseAnalysis.leastFrequent.map((purchase, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-orange-50 rounded">
-                      <span className="text-sm font-medium">{purchase.name}</span>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-orange-700">{purchase.purchases} compras</div>
-                        <div className="text-xs text-gray-500">S/ {purchase.totalCost.toFixed(2)}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {purchaseAnalysis.leastFrequent.length === 0 && (
-                    <p className="text-gray-500 text-sm">No hay compras en el período</p>
-                  )}
-                </div>
-              </div>
+
+          {/* Ventas de productos por día */}
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
+            <h3 className="text-lg font-bold mb-4">Ventas de Productos por Día</h3>
+            
+            {/* Selector de productos */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seleccionar productos (máximo 3):
+              </label>
+              <select
+                multiple
+                value={selectedProducts}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions, option => option.value)
+                  if (selected.length <= 3) {
+                    setSelectedProducts(selected)
+                  }
+                }}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                size={5}
+              >
+                {topProducts.map((product) => (
+                  <option key={product.name} value={product.name}>
+                    {product.name} ({product.quantity} vendidos)
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Seleccionados: {selectedProducts.length}/3
+              </p>
             </div>
+            
+            {selectedProducts.length > 0 ? (
+              <div className="h-80">
+                <Bar
+                  key={`products-${selectedProducts.join('-')}-${dateFrom}-${dateTo}`}
+                  data={{
+                    labels: productSalesByDay.map((item: any) => item.date),
+                    datasets: selectedProducts.map((product, index) => ({
+                      label: product,
+                      data: productSalesByDay.map((item: any) => item[product] || 0),
+                      backgroundColor: [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
+                      ][index % 5],
+                      borderWidth: 1
+                    }))
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { 
+                        display: true,
+                        position: 'top' as const
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => `${context.dataset.label}: ${context.parsed.y} unidades`
+                        }
+                      }
+                    },
+                    scales: {
+                      x: {
+                        ticks: {
+                          maxRotation: 45,
+                          minRotation: 45
+                        }
+                      },
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: (value) => `${value} und`
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                Selecciona hasta 3 productos para ver el gráfico
+              </div>
+            )}
           </div>
         </div>
       </div>

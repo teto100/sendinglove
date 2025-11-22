@@ -14,7 +14,7 @@
     "@hookform/resolvers": "^5.2.2",
     "chart.js": "^4.5.1",
     "dotenv": "^17.2.3",
-    "firebase": "^12.4.0",
+    "firebase": "^12.6.0",
     "firebase-admin": "^13.5.0",
     "lucide-react": "^0.546.0",
     "next": "15.5.6",

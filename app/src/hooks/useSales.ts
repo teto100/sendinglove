@@ -6,12 +6,47 @@ import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Sale, CreateSaleData } from '@/types/sale'
 import { useAccounts } from './useAccounts'
+import { useInventory } from './useInventory'
 
 export function useSales() {
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [firebaseUser] = useAuthState(auth)
   const { processPayment } = useAccounts()
+  const { updateInventoryMovement } = useInventory()
+  
+  // Productos que requieren pan hamburguesa
+  const PRODUCTS_REQUIRING_BREAD = [
+    'Hamburguesa',
+    'Sanguche De Pollo Deshilachado',
+    'Sanguche De Filete De Pollo'
+  ]
+  
+  // Función para descontar pan hamburguesa
+  const deductBreadForOrder = async (orderItems: any[], orderType: string, orderId: string) => {
+    let totalBreadNeeded = 0
+    const productsWithBread: string[] = []
+    
+    orderItems.forEach(item => {
+      if (PRODUCTS_REQUIRING_BREAD.includes(item.productName)) {
+        totalBreadNeeded += item.quantity
+        productsWithBread.push(`${item.productName} x${item.quantity}`)
+      }
+    })
+    
+    if (totalBreadNeeded > 0) {
+      const movementType = `Descuento automático - ${orderType}`
+      const description = `Descuento por productos con pan (${productsWithBread.join(', ')})`
+      
+      await updateInventoryMovement(
+        'Pan hamburguesa',
+        -totalBreadNeeded,
+        movementType,
+        description,
+        orderId
+      )
+    }
+  }
 
   useEffect(() => {
     const q = query(
@@ -137,6 +172,15 @@ export function useSales() {
           payment.method === 'Transferencia Rappi' ? `Venta Rappi #${id.slice(-6)} - Pago miércoles` : `Venta #${id.slice(-6)}`,
           id
         )
+      }
+    }
+    
+    // Descontar pan hamburguesa si la orden está cerrada y pagada
+    if (finalUpdates.orderStatus === 'Cerrada' && finalUpdates.paymentStatus === 'Pagado') {
+      // Buscar la venta actual para obtener los items
+      const currentSale = sales.find(sale => sale.id === id)
+      if (currentSale && currentSale.items) {
+        await deductBreadForOrder(currentSale.items, currentSale.orderType || 'Mesa', id)
       }
     }
   }

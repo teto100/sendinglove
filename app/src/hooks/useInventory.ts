@@ -218,6 +218,67 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     return inventory.filter(item => item.currentStock <= item.minStock)
   }
 
+  // Función para actualizar inventario por nombre de producto
+  const updateInventoryMovement = async (productName: string, quantity: number, movementType: string, description: string, orderId?: string) => {
+    if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
+
+    // Buscar producto por nombre
+    const product = products.find(p => p.name === productName)
+    if (!product) {
+      console.error(`Producto "${productName}" no encontrado`)
+      return
+    }
+
+    // Buscar item de inventario
+    let inventoryItem = inventory.find(i => i.productId === product.id)
+    
+    if (!inventoryItem) {
+      console.error(`Item de inventario para "${productName}" no encontrado`)
+      return
+    }
+
+    const previousStock = inventoryItem.currentStock
+    const newStock = previousStock + quantity // quantity ya viene negativo
+
+    if (newStock < 0) {
+      console.error(`Stock insuficiente para "${productName}". Stock actual: ${previousStock}, intentando descontar: ${Math.abs(quantity)}`)
+      return
+    }
+
+    try {
+      // Crear movimiento
+      await addDoc(collection(db, 'inventory-movements'), {
+        productId: product.id,
+        productName: product.name,
+        type: quantity > 0 ? 'entrada' : 'salida',
+        quantity: Math.abs(quantity),
+        reason: movementType,
+        description: description,
+        orderId: orderId,
+        previousStock,
+        newStock,
+        createdAt: new Date(),
+        createdBy: firebaseUser.uid,
+        createdByName: firebaseUser.email || 'Usuario',
+        updatedAt: new Date(),
+        updatedBy: firebaseUser.uid,
+        updatedByName: firebaseUser.email || 'Usuario'
+      })
+
+      // Actualizar stock
+      await updateDoc(doc(db, 'inventory', inventoryItem.id), {
+        currentStock: newStock,
+        lastUpdated: new Date(),
+        updatedBy: firebaseUser.uid,
+        updatedByName: firebaseUser.email || 'Usuario'
+      })
+
+      console.log(`✅ Descontado ${Math.abs(quantity)} ${productName}. Stock: ${previousStock} → ${newStock}`)
+    } catch (error) {
+      console.error(`❌ Error actualizando inventario para "${productName}":`, error)
+    }
+  }
+
   return {
     inventory,
     movements,
@@ -226,6 +287,7 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     movementsLoading,
     createMovement,
     updateStockLimits,
-    getLowStockItems
+    getLowStockItems,
+    updateInventoryMovement
   }
 }

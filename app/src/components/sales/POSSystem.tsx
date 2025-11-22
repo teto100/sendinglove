@@ -1179,7 +1179,7 @@ export default function POSSystem() {
                         
                         <input
                           type="number"
-                          value={pm.amount}
+                          value={pm.amount === 0 ? '' : pm.amount}
                           onChange={(e) => updatePaymentMethod(index, 'amount', parseFloat(e.target.value) || 0)}
                           className="p-2 border rounded text-sm"
                           placeholder="Monto"
@@ -1191,7 +1191,7 @@ export default function POSSystem() {
                         <div className="mt-2">
                           <input
                             type="number"
-                            value={pm.cashReceived || ''}
+                            value={pm.cashReceived === 0 ? '' : (pm.cashReceived || '')}
                             onChange={(e) => updatePaymentMethod(index, 'cashReceived', parseFloat(e.target.value) || 0)}
                             className="w-full p-2 border rounded text-sm"
                             placeholder="Efectivo recibido"

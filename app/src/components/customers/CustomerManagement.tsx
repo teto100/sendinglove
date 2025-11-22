@@ -310,19 +310,28 @@ export default function CustomerManagement() {
                                 {customer.phone || '-'}
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {customer.programa_referidos ? (
+                                {!customer.programa_referidos ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    ❌ No suscrito
+                                  </span>
+                                ) : customer.programa_referidos && !customer.terminos_condiciones ? (
                                   <div className="flex items-center space-x-2">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      🏆 Activo
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      ⏳ Inscrito
                                     </span>
                                     <div className="text-xs text-gray-500">
                                       C: {customer.puntos_compras || 0} | R: {customer.puntos_referidos || 0}
                                     </div>
                                   </div>
                                 ) : (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    No inscrito
-                                  </span>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      ✅ Activo
+                                    </span>
+                                    <div className="text-xs text-gray-500">
+                                      C: {customer.puntos_compras || 0} | R: {customer.puntos_referidos || 0}
+                                    </div>
+                                  </div>
                                 )}
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
