@@ -5,6 +5,9 @@ on:
     - cron: '0 7 * * *'  # 7 AM UTC = 2 AM Lima
   workflow_dispatch:  # Permite ejecución manual
 
+env:
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
 jobs:
   daily-snapshot:
     runs-on: ubuntu-latest
@@ -13,7 +16,7 @@ jobs:
       - name: Call Daily Snapshot API
         run: |
           response=$(curl -s -w "%{http_code}" -X GET "https://sendinglove.vercel.app/api/daily-snapshot" \
-            -H "Authorization: Bearer sending-cron-2024-secret")
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
           
           http_code="${response: -3}"
           body="${response%???}"
