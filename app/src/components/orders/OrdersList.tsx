@@ -6,7 +6,7 @@ import { useSales } from '@/hooks/useSales'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useCustomers } from '@/hooks/useCustomers'
-import { useInventorySync } from '@/hooks/useInventorySync'
+
 import { Sale } from '@/types/sale'
 import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -18,8 +18,7 @@ export default function OrdersList() {
   const { user } = useCurrentUser()
   const { customers, searchCustomers, createCustomer } = useCustomers()
   
-  // Sincronizar inventario automáticamente
-  useInventorySync()
+
   const [selectedOrder, setSelectedOrder] = useState<Sale | null>(null)
   const [editingOrder, setEditingOrder] = useState<Sale | null>(null)
   const [customerSearch, setCustomerSearch] = useState('')
@@ -223,7 +222,7 @@ export default function OrdersList() {
           createdAt = new Date(dateTimeStr)
           
           if (isNaN(createdAt.getTime())) {
-            console.error('❌ Fecha inválida:', dateTimeStr)
+            console.error('❌ Fecha inválida:', String(dateTimeStr || '').replace(/[\r\n]/g, ''))
             errors.push(`Línea ${i + 1}: Fecha u hora inválida`)
             continue
           }
@@ -244,19 +243,19 @@ export default function OrdersList() {
         }
         
         if (!['Mesa', 'Delivery Rappi', 'Delivery Interno'].includes(orderType)) {
-          console.error('❌ orderType inválido:', orderType)
+          console.error('❌ orderType inválido:', String(orderType || '').replace(/[\r\n]/g, ''))
           errors.push(`Línea ${i + 1}: orderType inválido (debe ser Mesa, Delivery Rappi o Delivery Interno)`)
           continue
         }
         
         if (!['SIN PAGAR', 'Pagado'].includes(paymentStatus)) {
-          console.error('❌ paymentStatus inválido:', paymentStatus)
+          console.error('❌ paymentStatus inválido:', String(paymentStatus || '').replace(/[\r\n]/g, ''))
           errors.push(`Línea ${i + 1}: paymentStatus inválido (debe ser SIN PAGAR o Pagado)`)
           continue
         }
         
         if (!['Abierta', 'Cerrada'].includes(orderStatus)) {
-          console.error('❌ orderStatus inválido:', orderStatus)
+          console.error('❌ orderStatus inválido:', String(orderStatus || '').replace(/[\r\n]/g, ''))
           errors.push(`Línea ${i + 1}: orderStatus inválido (debe ser Abierta o Cerrada)`)
           continue
         }
@@ -275,12 +274,12 @@ export default function OrdersList() {
                 phone: customerPhone || ''
               })
             } catch (error: any) {
-              console.error('❌ 🚫 ERROR CREANDO CLIENTE:', error.message)
+              console.error('❌ 🚫 ERROR CREANDO CLIENTE:', String(error.message || '').replace(/[\r\n]/g, ''))
             }
           } else {
           }
         } else if (customerName && customerName.trim() && !user) {
-          console.warn('⚠️ Usuario no autenticado, saltando creación de cliente:', customerName)
+          console.warn('Usuario no autenticado, saltando creación de cliente:', String(customerName || '').replace(/[\r\n]/g, ''))
         }
         
         const saleData = {
@@ -318,11 +317,11 @@ export default function OrdersList() {
         // Delay para evitar sobrecargar Firebase
         await new Promise(resolve => setTimeout(resolve, 100))
       } catch (error: any) {
-        console.error('Error details:', error)
-        console.error('Error message:', error.message)
-        console.error('Error stack:', error.stack)
+        console.error('Error details:', String(error || '').replace(/[\r\n]/g, ''))
+        console.error('Error message:', String(error.message || '').replace(/[\r\n]/g, ''))
+        console.error('Error stack:', String(error.stack || '').replace(/[\r\n]/g, ''))
         
-        errors.push(`Línea ${i + 1}: Error procesando datos - ${error.message}`)
+        errors.push(`Línea ${i + 1}: Error procesando datos - ${String(error.message || '').replace(/[\r\n]/g, '')}`)
       }
     }
     

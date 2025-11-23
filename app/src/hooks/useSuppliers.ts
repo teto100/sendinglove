@@ -1,14 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Supplier, CreateSupplierData } from '@/types/supplier'
-import { useCachedData } from './useCachedData'
 
 export function useSuppliers() {
-  const { data: suppliers, loading, refresh } = useCachedData<Supplier>('suppliers', 'name')
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+
+  useEffect(() => {
+    const q = query(collection(db, 'suppliers'), orderBy('name'))
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const suppliersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Supplier[]
+      
+      setSuppliers(suppliersData)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const createSupplier = async (supplierData: CreateSupplierData) => {
     try {
@@ -53,6 +69,10 @@ export function useSuppliers() {
     } finally {
       setOperationLoading(false)
     }
+  }
+
+  const refresh = () => {
+    // No needed with real-time updates
   }
 
   return {

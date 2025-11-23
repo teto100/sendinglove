@@ -200,7 +200,7 @@ export function useAccounts() {
     const account = accounts.find(a => a.type === accountType)
     
     if (!account) {
-      console.error('❌ Cuenta no encontrada para el tipo:', accountType)
+      console.error('Cuenta no encontrada para el tipo:', String(accountType || '').replace(/[\r\n]/g, ''))
       return
     }
 

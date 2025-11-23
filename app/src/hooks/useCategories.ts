@@ -1,15 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, writeBatch, Timestamp } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, writeBatch, Timestamp, onSnapshot, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Category } from '@/types/product'
-import { useCachedData } from './useCachedData'
-
 
 export function useCategories() {
-  const { data: categories, loading, refresh } = useCachedData<Category>('categories', 'name')
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+
+  useEffect(() => {
+    const q = query(collection(db, 'categories'), orderBy('name', 'asc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Category[]
+      setCategories(items)
+      setLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const refresh = () => {
+    setLoading(true)
+  }
 
   const createCategory = async (name: string, description?: string, parentId?: string) => {
     try {

@@ -696,7 +696,7 @@ export default function FinancialDashboard() {
                 <Bar
                   key={`bar1-${dateFrom}-${dateTo}`}
                   data={{
-                    labels: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 10).map((item: any) => item.name),
+                    labels: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 10).map((item: any) => String(item.name || '').replace(/[&<>"']/g, (match) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[match] || match))),
                     datasets: [{
                       label: 'Cantidad',
                       data: [...topProducts].sort((a: any, b: any) => b.quantity - a.quantity).slice(0, 10).map((item: any) => item.quantity),
@@ -742,7 +742,7 @@ export default function FinancialDashboard() {
                 <Bar
                   key={`bar2-${dateFrom}-${dateTo}`}
                   data={{
-                    labels: topProducts.map((item: any) => item.name),
+                    labels: topProducts.map((item: any) => String(item.name || '').replace(/[&<>"']/g, (match) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[match] || match))),
                     datasets: [{
                       label: 'Ingresos (S/)',
                       data: topProducts.map((item: any) => item.revenue),
@@ -862,15 +862,21 @@ export default function FinancialDashboard() {
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-bold mb-4">Clientes Recurrentes</h3>
               <div className="space-y-3">
-                {recurringCustomers.map((customer, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <div>
-                      <p className="font-medium">{customer.name}</p>
-                      <p className="text-sm text-gray-500">{customer.purchases} compras</p>
+                {recurringCustomers.map((customer, index) => {
+                  const sanitizedName = String(customer.name || '').replace(/[&<>"']/g, (match) => {
+                    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }
+                    return entities[match] || match
+                  })
+                  return (
+                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <div>
+                        <p className="font-medium">{sanitizedName}</p>
+                        <p className="text-sm text-gray-500">{customer.purchases} compras</p>
+                      </div>
+                      <p className="font-bold text-green-600">S/ {customer.total.toFixed(2)}</p>
                     </div>
-                    <p className="font-bold text-green-600">S/ {customer.total.toFixed(2)}</p>
-                  </div>
-                ))}
+                  )
+                })}
                 {recurringCustomers.length === 0 && (
                   <p className="text-gray-500 text-center py-8">No hay clientes recurrentes en el período</p>
                 )}
@@ -892,7 +898,7 @@ export default function FinancialDashboard() {
                 <Bar
                   key={`profit-bar-${dateFrom}-${dateTo}`}
                   data={{
-                    labels: profitabilityAnalysis.map((item: any) => item.name),
+                    labels: profitabilityAnalysis.map((item: any) => String(item.name || '').replace(/[&<>"']/g, (match) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[match] || match))),
                     datasets: [{
                       label: 'Ganancia Total (S/)',
                       data: profitabilityAnalysis.map((item: any) => item.totalProfit),
@@ -946,7 +952,7 @@ export default function FinancialDashboard() {
                   {profitabilityAnalysis.map((item: any, index) => (
                     <div key={index} className="p-3 border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
-                        <h5 className="font-medium text-sm">{item.name}</h5>
+                        <h5 className="font-medium text-sm">{String(item.name || '').replace(/[&<>"']/g, (match) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[match] || match))}</h5>
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           item.marginPercent > 50 ? 'bg-green-100 text-green-800' :
                           item.marginPercent > 30 ? 'bg-yellow-100 text-yellow-800' :
@@ -999,11 +1005,17 @@ export default function FinancialDashboard() {
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 size={5}
               >
-                {topProducts.map((product) => (
-                  <option key={product.name} value={product.name}>
-                    {product.name} ({product.quantity} vendidos)
-                  </option>
-                ))}
+                {topProducts.map((product) => {
+                  const sanitizedName = String(product.name || '').replace(/[&<>"']/g, (match) => {
+                    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }
+                    return entities[match] || match
+                  })
+                  return (
+                    <option key={product.name} value={product.name}>
+                      {sanitizedName} ({product.quantity} vendidos)
+                    </option>
+                  )
+                })}
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 Seleccionados: {selectedProducts.length}/3
@@ -1016,14 +1028,20 @@ export default function FinancialDashboard() {
                   key={`products-${selectedProducts.join('-')}-${dateFrom}-${dateTo}`}
                   data={{
                     labels: productSalesByDay.map((item: any) => item.date),
-                    datasets: selectedProducts.map((product, index) => ({
-                      label: product,
-                      data: productSalesByDay.map((item: any) => item[product] || 0),
-                      backgroundColor: [
-                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
-                      ][index % 5],
-                      borderWidth: 1
-                    }))
+                    datasets: selectedProducts.map((product, index) => {
+                      const sanitizedLabel = String(product || '').replace(/[&<>"']/g, (match) => {
+                        const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }
+                        return entities[match] || match
+                      })
+                      return {
+                        label: sanitizedLabel,
+                        data: productSalesByDay.map((item: any) => item[product] || 0),
+                        backgroundColor: [
+                          '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
+                        ][index % 5],
+                        borderWidth: 1
+                      }
+                    })
                   }}
                   options={{
                     responsive: true,

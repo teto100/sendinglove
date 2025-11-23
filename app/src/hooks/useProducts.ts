@@ -1,16 +1,41 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, doc, updateDoc, deleteDoc, addDoc, query, where, getDocs } from 'firebase/firestore'
+import { collection, doc, updateDoc, deleteDoc, addDoc, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Product, CreateProductData } from '@/types/product'
-import { useCachedData } from './useCachedData'
 
 export function useProducts() {
-  const { data: products, loading, refresh, forceRefresh } = useCachedData<Product>('products', 'name')
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
   const [firebaseUser] = useAuthState(auth)
+
+  useEffect(() => {
+    const q = query(collection(db, 'products'), orderBy('name', 'asc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      })) as Product[]
+      
+      setProducts(productsData)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const refresh = async () => {
+    // Auto-refresh con onSnapshot
+  }
+
+  const forceRefresh = async () => {
+    // Auto-refresh con onSnapshot
+  }
 
   const generateUniqueSKU = async (productName: string): Promise<string> => {
     const abbreviation = productName
@@ -98,8 +123,6 @@ export function useProducts() {
     }
   }
 
-
-
   return {
     products,
     loading: loading || operationLoading,
@@ -107,6 +130,6 @@ export function useProducts() {
     updateProduct,
     deleteProduct,
     refresh,
-
+    forceRefresh
   }
 }

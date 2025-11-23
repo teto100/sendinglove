@@ -1,16 +1,38 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, getDocs, orderBy, onSnapshot } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { Customer, CreateCustomerData } from '@/types/customer'
-import { useCachedData } from './useCachedData'
 
 export function useCustomers() {
-  const { data: customers, loading, refresh } = useCachedData<Customer>('customers', 'name')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
   const [firebaseUser] = useAuthState(auth)
+
+  useEffect(() => {
+    const q = query(collection(db, 'customers'), orderBy('name', 'asc'))
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const customersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date(),
+        updatedAt: doc.data().updatedAt?.toDate() || new Date()
+      })) as Customer[]
+      
+      setCustomers(customersData)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const refresh = async () => {
+    // Auto-refresh con onSnapshot
+  }
 
   const createCustomer = async (customerData: CreateCustomerData): Promise<string> => {
     if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
@@ -38,7 +60,6 @@ export function useCustomers() {
         createdAt: new Date(),
         updatedAt: new Date()
       })
-      await refresh()
       return docRef.id
     } finally {
       setOperationLoading(false)
@@ -58,7 +79,6 @@ export function useCustomers() {
         ...cleanUpdates,
         updatedAt: new Date()
       })
-      await refresh()
     } finally {
       setOperationLoading(false)
     }
@@ -70,7 +90,6 @@ export function useCustomers() {
     try {
       setOperationLoading(true)
       await deleteDoc(doc(db, 'customers', id))
-      await refresh()
     } finally {
       setOperationLoading(false)
     }

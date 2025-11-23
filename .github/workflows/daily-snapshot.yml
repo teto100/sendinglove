@@ -7,6 +7,7 @@ on:
 
 env:
   CRON_SECRET: ${{ secrets.CRON_SECRET }}
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://sendinglove.vercel.app' }}
 
 jobs:
   daily-snapshot:
@@ -15,7 +16,7 @@ jobs:
     steps:
       - name: Call Daily Snapshot API
         run: |
-          response=$(curl -s -w "%{http_code}" -X GET "https://sendinglove.vercel.app/api/daily-snapshot" \
+          response=$(curl -s -w "%{http_code}" -X GET "${{ env.API_BASE_URL }}/api/daily-snapshot" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
           
           http_code="${response: -3}"

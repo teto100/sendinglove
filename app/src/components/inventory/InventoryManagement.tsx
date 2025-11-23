@@ -5,7 +5,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { useProducts } from '@/hooks/useProducts'
 import { useCategories } from '@/hooks/useCategories'
 import { usePermissions } from '@/hooks/usePermissions'
-import { requestNotificationPermission } from '@/lib/notifications'
+
 import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import AlertModal from '@/components/ui/AlertModal'
@@ -47,7 +47,7 @@ export default function InventoryManagement() {
     reason: ''
   })
   const [stockLimits, setStockLimits] = useState({ minStock: 0, maxStock: 0 })
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [alert, setAlert] = useState<{show: boolean, title: string, message: string, type: 'success' | 'error' | 'warning' | 'info'}>({show: false, title: '', message: '', type: 'info'})
   const [showCsvImport, setShowCsvImport] = useState(false)
@@ -55,14 +55,7 @@ export default function InventoryManagement() {
   const [importResults, setImportResults] = useState<{ success: number, errors: string[] } | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    // Solicitar permisos de notificación al cargar
-    const enableNotifications = async () => {
-      const token = await requestNotificationPermission()
-      setNotificationsEnabled(!!token)
-    }
-    enableNotifications()
-  }, [])
+
 
   const lowStockItems = getLowStockItems()
 
@@ -169,17 +162,7 @@ export default function InventoryManagement() {
                 Control de Inventario
               </h1>
               <div className="flex gap-2">
-                {!notificationsEnabled && (
-                  <button
-                    onClick={async () => {
-                      const token = await requestNotificationPermission()
-                      setNotificationsEnabled(!!token)
-                    }}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg"
-                  >
-                    🔔 Activar Alertas
-                  </button>
-                )}
+
                 {hasPermission('inventory', 'create') && (
                   <>
                     {deviceType !== 'mobile' && (

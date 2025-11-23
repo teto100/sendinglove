@@ -6,7 +6,7 @@ import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { InventoryItem, InventoryMovement, CreateInventoryMovementData } from '@/types/inventory'
 import { useProducts } from './useProducts'
-import { sendStockAlert } from '@/lib/notifications'
+
 
 export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
   const [inventory, setInventory] = useState<InventoryItem[]>([])
@@ -194,9 +194,9 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
       updatedByName: firebaseUser.email || 'Usuario'
     })
 
-    // Verificar alerta de stock bajo
+    // Stock bajo detectado (sin alertas por ahora)
     if (newStock <= inventoryItem.minStock) {
-      await sendStockAlert(product.name, newStock)
+      console.warn('Stock bajo detectado. Producto:', product.name?.replace(/[\r\n]/g, ''), 'Stock:', newStock)
     }
 
     return movementRef.id
@@ -225,7 +225,7 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     // Buscar producto por nombre
     const product = products.find(p => p.name === productName)
     if (!product) {
-      console.error(`Producto "${productName}" no encontrado`)
+      console.error('Producto no encontrado:', productName?.replace(/[\r\n]/g, ''))
       return
     }
 
@@ -233,7 +233,7 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     let inventoryItem = inventory.find(i => i.productId === product.id)
     
     if (!inventoryItem) {
-      console.error(`Item de inventario para "${productName}" no encontrado`)
+      console.error('Item de inventario no encontrado para producto:', productName?.replace(/[\r\n]/g, ''))
       return
     }
 
@@ -241,7 +241,7 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     const newStock = previousStock + quantity // quantity ya viene negativo
 
     if (newStock < 0) {
-      console.error(`Stock insuficiente para "${productName}". Stock actual: ${previousStock}, intentando descontar: ${Math.abs(quantity)}`)
+      console.error('Stock insuficiente. Producto:', productName?.replace(/[\r\n]/g, ''), 'Stock:', previousStock, 'Descuento:', Math.abs(quantity))
       return
     }
 
@@ -273,9 +273,9 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
         updatedByName: firebaseUser.email || 'Usuario'
       })
 
-      console.log(`✅ Descontado ${Math.abs(quantity)} ${productName}. Stock: ${previousStock} → ${newStock}`)
+      console.log('Inventario actualizado. Producto:', productName?.replace(/[\r\n]/g, ''), 'Cantidad:', Math.abs(quantity), 'Stock anterior:', previousStock, 'Stock nuevo:', newStock)
     } catch (error) {
-      console.error(`❌ Error actualizando inventario para "${productName}":`, error)
+      console.error('Error actualizando inventario para producto:', productName?.replace(/[\r\n]/g, ''), error)
     }
   }
 

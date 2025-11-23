@@ -1,16 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { collection, doc, setDoc, updateDoc, deleteDoc, getDocs, query, orderBy } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
-import { getFunctions } from 'firebase/functions'
-import { db, auth } from '@/lib/firebase'
+import { useState, useEffect } from 'react'
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import { User, CreateUserData } from '@/types/user'
-import { useCachedData } from './useCachedData'
 
 export function useUsers() {
-  const { data: users, loading, refresh, forceRefresh } = useCachedData<User>('users', 'name')
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [operationLoading, setOperationLoading] = useState(false)
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'), orderBy('name'))
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as User[]
+      
+      setUsers(usersData)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const createUser = async (userData: CreateUserData) => {
     try {
@@ -42,7 +56,6 @@ export function useUsers() {
         throw new Error(result.error || 'Error al crear usuario')
       }
       
-      
       // Crear documento en Firestore
       await setDoc(doc(db, 'users', result.uid), {
         email: userData.email.trim(),
@@ -54,10 +67,8 @@ export function useUsers() {
         lastLogin: null
       })
       
-      
       return { success: true, uid: result.uid }
     } catch (error: any) {
-      
       let errorMessage = 'Error desconocido'
       
       switch (error.code) {
@@ -121,7 +132,9 @@ export function useUsers() {
     }
   }
 
-
+  const refresh = () => {
+    // No needed with real-time updates
+  }
 
   return {
     users,
