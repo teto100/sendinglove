@@ -58,9 +58,13 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error: any) {
+    console.error('❌ Snapshot POST Error:', error)
+    console.error('❌ Error message:', error.message)
+    console.error('❌ Error stack:', error.stack)
     return NextResponse.json({ 
       error: 'Error interno del servidor',
-      details: error.message 
+      details: error.message,
+      stack: error.stack 
     }, { status: 500 })
   }
 }
@@ -125,9 +129,13 @@ export async function GET(request: NextRequest) {
       })
     }
   } catch (error: any) {
+    console.error('❌ Snapshot GET Error:', error)
+    console.error('❌ Error message:', error.message)
+    console.error('❌ Error stack:', error.stack)
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error.message,
+      stack: error.stack 
     }, { status: 500 })
   }
 }
