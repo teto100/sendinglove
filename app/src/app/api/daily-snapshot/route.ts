@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase-admin'
+import { getAdminDb } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
     // Obtener cuentas actuales
+    const adminDb = getAdminDb()
     const accountsSnapshot = await adminDb.collection('accounts').get()
     const accounts: { [key: string]: number } = {}
     
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const adminDb = getAdminDb()
     const accountsSnapshot = await adminDb.collection('accounts').get()
     const accounts: { [key: string]: number } = {}
     

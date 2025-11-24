@@ -1,9 +1,11 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 
-let adminDb: any = null
-
-if (typeof window === 'undefined' && process.env.FIREBASE_PROJECT_ID) {
+export function getAdminDb() {
+  if (typeof window !== 'undefined') {
+    throw new Error('Firebase Admin can only be used on server side')
+  }
+  
   if (!getApps().length) {
     initializeApp({
       credential: cert({
@@ -13,7 +15,6 @@ if (typeof window === 'undefined' && process.env.FIREBASE_PROJECT_ID) {
       })
     })
   }
-  adminDb = getFirestore()
+  
+  return getFirestore()
 }
-
-export { adminDb }
