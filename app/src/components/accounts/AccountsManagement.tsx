@@ -8,6 +8,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Header from '@/components/layout/Header'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import ManualSnapshot from './ManualSnapshot'
 
 export default function AccountsManagement() {
   const { accounts, movements, loading, createMovement, setInitialBalance } = useAccounts()
@@ -95,9 +96,12 @@ export default function AccountsManagement() {
         <div className="container mx-auto px-4 py-8 pt-20">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">Gestión de Cuentas</h1>
-            <div className="bg-white px-6 py-3 rounded-lg shadow">
-              <p className="text-sm text-gray-500">Balance Total</p>
-              <p className="text-2xl font-bold text-green-600">S/ {getTotalBalance().toFixed(2)}</p>
+            <div className="flex gap-4">
+              <ManualSnapshot />
+              <div className="bg-white px-6 py-3 rounded-lg shadow">
+                <p className="text-sm text-gray-500">Balance Total</p>
+                <p className="text-2xl font-bold text-green-600">S/ {getTotalBalance().toFixed(2)}</p>
+              </div>
             </div>
           </div>
 
