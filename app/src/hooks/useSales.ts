@@ -28,9 +28,9 @@ export function useSales() {
     const productsWithBread: string[] = []
     
     orderItems.forEach(item => {
-      if (PRODUCTS_REQUIRING_BREAD.includes(item.productName)) {
+      if (PRODUCTS_REQUIRING_BREAD.includes(item.name)) {
         totalBreadNeeded += item.quantity
-        productsWithBread.push(`${item.productName} x${item.quantity}`)
+        productsWithBread.push(`${item.name} x${item.quantity}`)
       }
     })
     
@@ -38,13 +38,17 @@ export function useSales() {
       const movementType = `Descuento automático - ${orderType}`
       const description = `Descuento por productos con pan (${productsWithBread.join(', ')})`
       
-      await updateInventoryMovement(
-        'Pan hamburguesa',
-        -totalBreadNeeded,
-        movementType,
-        description,
-        orderId
-      )
+      try {
+        await updateInventoryMovement(
+          'Pan hamburguesa',
+          -totalBreadNeeded,
+          movementType,
+          description,
+          orderId
+        )
+      } catch (error) {
+        console.error('Error al descontar panes:', error)
+      }
     }
   }
 
@@ -129,6 +133,11 @@ export function useSales() {
       } else {
       }
       
+      // Descontar pan hamburguesa si la venta se crea cerrada y pagada
+      if (saleData.orderStatus === 'Cerrada' && saleData.paymentStatus === 'Pagado' && saleData.items) {
+        await deductBreadForOrder(saleData.items, saleData.orderType || 'Mesa', docRef.id)
+      }
+      
       return docRef.id
       
     } catch (error) {
@@ -177,7 +186,6 @@ export function useSales() {
     
     // Descontar pan hamburguesa si la orden está cerrada y pagada
     if (finalUpdates.orderStatus === 'Cerrada' && finalUpdates.paymentStatus === 'Pagado') {
-      // Buscar la venta actual para obtener los items
       const currentSale = sales.find(sale => sale.id === id)
       if (currentSale && currentSale.items) {
         await deductBreadForOrder(currentSale.items, currentSale.orderType || 'Mesa', id)
