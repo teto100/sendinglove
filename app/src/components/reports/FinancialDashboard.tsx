@@ -48,6 +48,7 @@ export default function FinancialDashboard() {
   })
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [products, setProducts] = useState([])
   
   // Funciones para rangos de fechas
   const setCurrentWeek = () => {
@@ -175,16 +176,59 @@ export default function FinancialDashboard() {
       return purchaseDateKey >= dateFrom && purchaseDateKey <= dateTo
     }).reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0)
     
+    // Compras con "gas" en el nombre
+    const gasPurchases = allPurchases.filter(purchase => {
+      const purchaseDate = new Date(purchase.createdAt)
+      const year = purchaseDate.getFullYear()
+      const month = String(purchaseDate.getMonth() + 1).padStart(2, '0')
+      const day = String(purchaseDate.getDate()).padStart(2, '0')
+      const purchaseDateKey = `${year}-${month}-${day}`
+      
+      return purchaseDateKey >= dateFrom && purchaseDateKey <= dateTo && 
+             purchase.productName?.toLowerCase().includes('gas')
+    }).reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0)
+    
+    // Costos de productos vendidos
+    const productCosts = filteredSales.reduce((sum, sale) => {
+      return sum + sale.items.reduce((itemSum, item) => {
+        const cleanItemName = item.name.replace(/^"+|"+$/g, '').trim()
+        const product = products.find(p => 
+          p.name.toLowerCase().replace(/\s+/g, ' ').trim() === 
+          cleanItemName.toLowerCase().replace(/\s+/g, ' ').trim()
+        )
+        if (product && product.productionCost > 0) {
+          return itemSum + (product.productionCost * item.quantity)
+        }
+        return itemSum
+      }, 0)
+    }, 0)
+    
+    // Costos totales = gastos fijos + compras gas + costos productos
+    const totalCosts = totalExpenses + gasPurchases + productCosts
+    
     const result = {
       totalSales,
       totalExpenses,
       totalPurchases,
-      netProfit: totalSales - totalExpenses - totalPurchases,
+      gasPurchases,
+      productCosts,
+      totalCosts,
+      netProfit: totalSales - totalCosts,
       salesCount: filteredSales.length,
       avgTicket: filteredSales.length > 0 ? totalSales / filteredSales.length : 0
     }
+    
+    // Debug para período 01-11 al 30-11
+    if (dateFrom === '2024-11-01' && dateTo === '2024-11-30') {
+      console.log('=== DESGLOSE COSTOS NOVIEMBRE 2024 ===')
+      console.log('Gastos fijos (expenses):', totalExpenses.toFixed(2))
+      console.log('Gastos almacén (compras con gas):', gasPurchases.toFixed(2))
+      console.log('Costo producción:', productCosts.toFixed(2))
+      console.log('TOTAL COSTOS:', totalCosts.toFixed(2))
+      console.log('============================================')
+    }
     return result
-  }, [filteredSales, expenses, allPurchases, dateFrom, dateTo])
+  }, [filteredSales, expenses, allPurchases, dateFrom, dateTo, products])
 
   // Ventas por día
   const dailySales = useMemo(() => {
@@ -346,8 +390,6 @@ export default function FinancialDashboard() {
   }, [filteredSales])
 
   // Cargar productos para análisis de rentabilidad
-  const [products, setProducts] = useState([])
-  
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -577,7 +619,7 @@ export default function FinancialDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Ventas Totales</h3>
               <p className="text-2xl font-bold text-green-600">S/ {metrics.totalSales.toFixed(2)}</p>
@@ -588,8 +630,17 @@ export default function FinancialDashboard() {
               <p className="text-2xl font-bold text-blue-600">S/ {metrics.avgTicket.toFixed(2)}</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Gastos Totales</h3>
-              <p className="text-2xl font-bold text-red-600">S/ {(metrics.totalExpenses + metrics.totalPurchases).toFixed(2)}</p>
+              <h3 className="text-sm font-medium text-gray-500">Pagos Totales (Gastos del mes)</h3>
+              <p className="text-2xl font-bold text-yellow-600">S/ {(metrics.totalExpenses + metrics.totalPurchases).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Costos totales (Costos + Gastos fijos)</h3>
+              <p className="text-2xl font-bold text-orange-600">S/ {metrics.totalCosts.toFixed(2)}</p>
+              <div className="text-xs text-gray-500 mt-2 space-y-1">
+                <div>Gastos fijos: S/ {metrics.totalExpenses.toFixed(2)}</div>
+                <div>Gastos almacén: S/ {metrics.gasPurchases.toFixed(2)}</div>
+                <div>Costo producción: S/ {metrics.productCosts.toFixed(2)}</div>
+              </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Ganancia Neta</h3>
@@ -983,6 +1034,140 @@ export default function FinancialDashboard() {
           </div>
 
 
+
+          {/* Análisis de Horas de Trabajo */}
+          <div className="bg-white p-6 rounded-lg shadow mb-8">
+            <h3 className="text-lg font-bold mb-4">Horas de Trabajo (18:00 - 23:59)</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Ventas por hora */}
+              <div className="h-64">
+                <h4 className="font-medium mb-2">Ventas por Hora</h4>
+                <Bar
+                  key={`hours-${dateFrom}-${dateTo}`}
+                  data={{
+                    labels: ['18:00', '19:00', '20:00', '21:00', '22:00', '23:00'],
+                    datasets: [{
+                      label: 'Ventas por hora',
+                      data: (() => {
+                        const hourSales = { 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0 }
+                        filteredSales.forEach(sale => {
+                          const hour = new Date(sale.createdAt).getHours()
+                          if (hour >= 18 && hour <= 23) {
+                            hourSales[hour] += sale.items.reduce((sum, item) => sum + item.quantity, 0)
+                          }
+                        })
+                        return [hourSales[18], hourSales[19], hourSales[20], hourSales[21], hourSales[22], hourSales[23]]
+                      })(),
+                      backgroundColor: '#3B82F6',
+                      borderWidth: 1
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                      y: { beginAtZero: true, ticks: { callback: (value) => `${value} prod` } }
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Hora pico y hora muerta */}
+              <div className="space-y-4">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-green-800">Hora Pico</h4>
+                  <p className="text-green-600">{(() => {
+                    const hourSales = { 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0 }
+                    filteredSales.forEach(sale => {
+                      const hour = new Date(sale.createdAt).getHours()
+                      if (hour >= 18 && hour <= 23) {
+                        hourSales[hour] += sale.items.reduce((sum, item) => sum + item.quantity, 0)
+                      }
+                    })
+                    const maxHour = Object.keys(hourSales).reduce((a, b) => hourSales[a] > hourSales[b] ? a : b)
+                    return `${maxHour}:00 - ${parseInt(maxHour) + 1}:00`
+                  })()}</p>
+                  <p className="text-lg font-bold text-green-800">{(() => {
+                    const hourSales = { 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0 }
+                    filteredSales.forEach(sale => {
+                      const hour = new Date(sale.createdAt).getHours()
+                      if (hour >= 18 && hour <= 23) {
+                        hourSales[hour] += sale.items.reduce((sum, item) => sum + item.quantity, 0)
+                      }
+                    })
+                    return Math.max(...Object.values(hourSales))
+                  })()} productos</p>
+                </div>
+                
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h4 className="font-bold text-red-800">Hora Muerta</h4>
+                  <p className="text-red-600">{(() => {
+                    const hourSales = { 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0 }
+                    filteredSales.forEach(sale => {
+                      const hour = new Date(sale.createdAt).getHours()
+                      if (hour >= 18 && hour <= 23) {
+                        hourSales[hour] += sale.items.reduce((sum, item) => sum + item.quantity, 0)
+                      }
+                    })
+                    const minHour = Object.keys(hourSales).reduce((a, b) => hourSales[a] < hourSales[b] ? a : b)
+                    return `${minHour}:00 - ${parseInt(minHour) + 1}:00`
+                  })()}</p>
+                  <p className="text-lg font-bold text-red-800">{(() => {
+                    const hourSales = { 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0 }
+                    filteredSales.forEach(sale => {
+                      const hour = new Date(sale.createdAt).getHours()
+                      if (hour >= 18 && hour <= 23) {
+                        hourSales[hour] += sale.items.reduce((sum, item) => sum + item.quantity, 0)
+                      }
+                    })
+                    return Math.min(...Object.values(hourSales))
+                  })()} productos</p>
+                </div>
+              </div>
+              
+              {/* Días sin ventas */}
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <h4 className="font-bold text-yellow-800 mb-2">Días Sin Ventas</h4>
+                <div className="text-sm text-yellow-700 max-h-48 overflow-y-auto">
+                  {(() => {
+                    const workDays = [1, 2, 4, 5, 6] // Lun, Mar, Jue, Vie, Sab
+                    const from = new Date(dateFrom)
+                    const to = new Date(dateTo)
+                    const daysWithSales = new Set()
+                    const daysWithoutSales = []
+                    
+                    filteredSales.forEach(sale => {
+                      const saleDate = new Date(sale.createdAt)
+                      const dateKey = saleDate.toISOString().split('T')[0]
+                      daysWithSales.add(dateKey)
+                    })
+                    
+                    const currentDate = new Date(from)
+                    while (currentDate <= to) {
+                      const dayOfWeek = currentDate.getDay()
+                      if (workDays.includes(dayOfWeek)) {
+                        const dateKey = currentDate.toISOString().split('T')[0]
+                        // Solo agregar si la fecha está dentro del rango seleccionado
+                        if (!daysWithSales.has(dateKey) && dateKey >= dateFrom && dateKey <= dateTo) {
+                          daysWithoutSales.push(currentDate.toLocaleDateString('es-PE', { 
+                            weekday: 'long', 
+                            day: 'numeric', 
+                            month: 'short' 
+                          }))
+                        }
+                      }
+                      currentDate.setDate(currentDate.getDate() + 1)
+                    }
+                    
+                    return daysWithoutSales.length > 0 
+                      ? daysWithoutSales.map((day, idx) => <div key={idx}>• {day}</div>)
+                      : <div className="text-green-600">✅ Todos los días laborables tuvieron ventas</div>
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Ventas de productos por día */}
           <div className="bg-white p-6 rounded-lg shadow mb-8">

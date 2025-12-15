@@ -66,10 +66,7 @@ export default function POSSystem() {
   })
 
   const filteredProducts = useMemo(() => {
-    let filtered = activeProducts.filter(p => {
-      const category = categories.find(c => c.id === p.categoryId)
-      return category?.name !== 'Acompañamientos'
-    })
+    let filtered = activeProducts
 
     if (searchTerm) {
       filtered = filtered.filter(p => 
@@ -680,7 +677,7 @@ export default function POSSystem() {
                 className="p-2 lg:p-3 border rounded-lg text-sm lg:text-base min-w-32"
               >
                 <option value="all">Todas</option>
-                {categories.filter(c => c.name !== 'Acompañamientos').map(category => (
+                {categories.map(category => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
