@@ -154,16 +154,15 @@ export default function FinancialDashboard() {
       return sum + sale.total
     }, 0)
     
-    // Filtrar gastos por rango de fechas
-    const totalExpenses = expenses.filter(expense => {
-      const expenseDate = new Date(expense.createdAt)
-      const year = expenseDate.getFullYear()
-      const month = String(expenseDate.getMonth() + 1).padStart(2, '0')
-      const day = String(expenseDate.getDate()).padStart(2, '0')
-      const expenseDateKey = `${year}-${month}-${day}`
-      
-      return expenseDateKey >= dateFrom && expenseDateKey <= dateTo
-    }).reduce((sum, expense) => sum + expense.amount, 0)
+    // Gastos fijos (2000 por mes)
+    const monthsDiff = (() => {
+      const from = new Date(dateFrom + 'T00:00:00')
+      const to = new Date(dateTo + 'T23:59:59')
+      const yearDiff = to.getFullYear() - from.getFullYear()
+      const monthDiff = to.getMonth() - from.getMonth()
+      return Math.max(1, yearDiff * 12 + monthDiff + 1)
+    })()
+    const totalExpenses = 2000 * monthsDiff
     
     // Filtrar compras por rango de fechas
     const totalPurchases = allPurchases.filter(purchase => {
@@ -203,7 +202,7 @@ export default function FinancialDashboard() {
       }, 0)
     }, 0)
     
-    // Costos totales = gastos fijos + compras gas + costos productos
+    // Costos totales = gastos fijos (promedio 2000) + compras gas + costos productos
     const totalCosts = totalExpenses + gasPurchases + productCosts
     
     const result = {
@@ -626,20 +625,12 @@ export default function FinancialDashboard() {
               <p className="text-sm text-gray-500">{metrics.salesCount} ventas</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Ticket Promedio</h3>
-              <p className="text-2xl font-bold text-blue-600">S/ {metrics.avgTicket.toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Pagos Totales (Gastos del mes)</h3>
-              <p className="text-2xl font-bold text-yellow-600">S/ {(metrics.totalExpenses + metrics.totalPurchases).toFixed(2)}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Costos totales (Costos + Gastos fijos)</h3>
               <p className="text-2xl font-bold text-orange-600">S/ {metrics.totalCosts.toFixed(2)}</p>
               <div className="text-xs text-gray-500 mt-2 space-y-1">
                 <div>Gastos fijos: S/ {metrics.totalExpenses.toFixed(2)}</div>
                 <div>Gastos almacén: S/ {metrics.gasPurchases.toFixed(2)}</div>
-                <div>Costo producción: S/ {metrics.productCosts.toFixed(2)}</div>
+                <div>Costo producción: S/ {metrics.productCosts.toFixed(2)} ({metrics.totalSales > 0 ? ((metrics.productCosts / metrics.totalSales) * 100).toFixed(1) : '0.0'}% de las ventas totales)</div>
               </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
@@ -647,6 +638,14 @@ export default function FinancialDashboard() {
               <p className={`text-2xl font-bold ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 S/ {metrics.netProfit.toFixed(2)}
               </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Ticket Promedio</h3>
+              <p className="text-2xl font-bold text-blue-600">S/ {metrics.avgTicket.toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Pagos Totales (Gastos del mes)</h3>
+              <p className="text-2xl font-bold text-yellow-600">S/ {(metrics.totalExpenses + metrics.totalPurchases).toFixed(2)}</p>
             </div>
           </div>
 
