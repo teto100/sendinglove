@@ -31,6 +31,7 @@ export default function OrdersList() {
   const [showCsvImport, setShowCsvImport] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importResults, setImportResults] = useState<{ success: number, errors: string[] } | null>(null)
+  const [dateChangeMessage, setDateChangeMessage] = useState<string | null>(null)
 
   const handleDelete = async () => {
     if (selectedOrder) {
@@ -139,11 +140,34 @@ export default function OrdersList() {
       setCustomerSuggestions([])
       setCustomerNameSearch('')
       setCustomerNameSuggestions([])
+      setDateChangeMessage(null)
     } catch (error) {
       alert('Error al actualizar la orden')
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleMoveToPreviousDay = async () => {
+    if (!editingOrder) return
+    
+    const currentDate = new Date(editingOrder.createdAt)
+    const previousDay = new Date(currentDate)
+    previousDay.setDate(currentDate.getDate() - 1)
+    previousDay.setHours(23, 59, 50, 0)
+    
+    const updatedOrder = {
+      ...editingOrder,
+      createdAt: previousDay
+    }
+    
+    setEditingOrder(updatedOrder)
+    setDateChangeMessage(`Hora cambiada a: ${previousDay.toLocaleDateString()} ${previousDay.toLocaleTimeString()}. Presiona "Guardar" para aplicar los cambios.`)
+  }
+
+  const shouldShowPreviousDayOption = (order: Sale) => {
+    const orderHour = order.createdAt.getHours()
+    return orderHour >= 0 && orderHour < 3
   }
 
   const handleCancelEdit = () => {
@@ -153,6 +177,7 @@ export default function OrdersList() {
     setCustomerSuggestions([])
     setCustomerNameSearch('')
     setCustomerNameSuggestions([])
+    setDateChangeMessage(null)
   }
 
   const handleCsvImport = async () => {
@@ -641,6 +666,26 @@ export default function OrdersList() {
                 </h3>
                 
                 <div className="space-y-4">
+                  {shouldShowPreviousDayOption(editingOrder) && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-sm text-yellow-700 mb-2">
+                        Esta venta fue registrada entre las 00:00 y 03:00
+                      </p>
+                      <button
+                        onClick={handleMoveToPreviousDay}
+                        className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                      >
+                        Mandar a día anterior
+                      </button>
+                    </div>
+                  )}
+                  
+                  {dateChangeMessage && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded">
+                      <p className="text-sm text-green-700">{dateChangeMessage}</p>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
