@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, where, limit, startAfter, getDocs } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy, where, limit, startAfter, getDocs, runTransaction } from 'firebase/firestore'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { db, auth } from '@/lib/firebase'
 import { InventoryItem, InventoryMovement, CreateInventoryMovementData } from '@/types/inventory'
@@ -218,7 +218,7 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
     return inventory.filter(item => item.currentStock <= item.minStock)
   }
 
-  // Función para actualizar inventario por nombre de producto
+  // Función para actualizar inventario por nombre de producto con transacciones atómicas
   const updateInventoryMovement = async (productName: string, quantity: number, movementType: string, description: string, orderId?: string) => {
     if (!firebaseUser?.uid) throw new Error('Usuario no autenticado')
 
@@ -229,53 +229,80 @@ export function useInventory(page = 1, pageSize = 30, searchTerm = '') {
       return
     }
 
-    // Buscar item de inventario
-    let inventoryItem = inventory.find(i => i.productId === product.id)
-    
-    if (!inventoryItem) {
-      console.error('Item de inventario no encontrado para producto:', productName?.replace(/[\r\n]/g, ''))
-      return
-    }
-
-    const previousStock = inventoryItem.currentStock
-    const newStock = previousStock + quantity // quantity ya viene negativo
-
-    if (newStock < 0) {
-      console.error('Stock insuficiente. Producto:', productName?.replace(/[\r\n]/g, ''), 'Stock:', previousStock, 'Descuento:', Math.abs(quantity))
-      return
-    }
-
     try {
-      // Crear movimiento
-      await addDoc(collection(db, 'inventory-movements'), {
-        productId: product.id,
-        productName: product.name,
-        type: quantity > 0 ? 'entrada' : 'salida',
-        quantity: Math.abs(quantity),
-        reason: movementType,
-        description: description,
-        orderId: orderId,
-        previousStock,
-        newStock,
-        createdAt: new Date(),
-        createdBy: firebaseUser.uid,
-        createdByName: firebaseUser.email || 'Usuario',
-        updatedAt: new Date(),
-        updatedBy: firebaseUser.uid,
-        updatedByName: firebaseUser.email || 'Usuario'
+      await runTransaction(db, async (transaction) => {
+        // Buscar item de inventario
+        const inventoryQuery = query(
+          collection(db, 'inventory'),
+          where('productId', '==', product.id),
+          limit(1)
+        )
+        const inventorySnapshot = await getDocs(inventoryQuery)
+        
+        let inventoryRef
+        let previousStock = 0
+        
+        if (inventorySnapshot.empty) {
+          // Crear nuevo item de inventario si no existe
+          inventoryRef = doc(collection(db, 'inventory'))
+          transaction.set(inventoryRef, {
+            productId: product.id,
+            productName: product.name,
+            currentStock: 0,
+            minStock: 10,
+            maxStock: 100,
+            createdAt: new Date(),
+            createdBy: firebaseUser.uid,
+            createdByName: firebaseUser.email || 'Usuario',
+            lastUpdated: new Date(),
+            updatedBy: firebaseUser.uid,
+            updatedByName: firebaseUser.email || 'Usuario'
+          })
+        } else {
+          const inventoryDoc = inventorySnapshot.docs[0]
+          inventoryRef = inventoryDoc.ref
+          previousStock = inventoryDoc.data().currentStock || 0
+        }
+        
+        const newStock = previousStock + quantity // quantity ya viene negativo
+        
+        if (newStock < 0) {
+          throw new Error(`Stock insuficiente. Producto: ${productName}, Stock: ${previousStock}, Descuento: ${Math.abs(quantity)}`)
+        }
+        
+        // Actualizar stock
+        transaction.update(inventoryRef, {
+          currentStock: newStock,
+          lastUpdated: new Date(),
+          updatedBy: firebaseUser.uid,
+          updatedByName: firebaseUser.email || 'Usuario'
+        })
+        
+        // Crear movimiento
+        const movementRef = doc(collection(db, 'inventory-movements'))
+        transaction.set(movementRef, {
+          productId: product.id,
+          productName: product.name,
+          type: quantity > 0 ? 'entrada' : 'salida',
+          quantity: Math.abs(quantity),
+          reason: movementType,
+          description: description,
+          orderId: orderId,
+          previousStock,
+          newStock,
+          createdAt: new Date(),
+          createdBy: firebaseUser.uid,
+          createdByName: firebaseUser.email || 'Usuario',
+          updatedAt: new Date(),
+          updatedBy: firebaseUser.uid,
+          updatedByName: firebaseUser.email || 'Usuario'
+        })
       })
-
-      // Actualizar stock
-      await updateDoc(doc(db, 'inventory', inventoryItem.id), {
-        currentStock: newStock,
-        lastUpdated: new Date(),
-        updatedBy: firebaseUser.uid,
-        updatedByName: firebaseUser.email || 'Usuario'
-      })
-
-      console.log('Inventario actualizado. Producto:', productName?.replace(/[\r\n]/g, ''), 'Cantidad:', Math.abs(quantity), 'Stock anterior:', previousStock, 'Stock nuevo:', newStock)
+      
+      console.log('Inventario actualizado atómicamente. Producto:', productName?.replace(/[\r\n]/g, ''))
     } catch (error) {
       console.error('Error actualizando inventario para producto:', productName?.replace(/[\r\n]/g, ''), error)
+      throw error
     }
   }
 

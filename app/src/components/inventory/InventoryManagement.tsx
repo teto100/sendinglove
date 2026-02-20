@@ -377,47 +377,60 @@ export default function InventoryManagement() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                        <th className="px-6 py-3 text-left text-sm font-bold text-green-900 uppercase bg-green-100">Stock Actual</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motivo</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {movementsLoading ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                             Cargando movimientos...
                           </td>
                         </tr>
                       ) : movements.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                             No se encontraron movimientos
                           </td>
                         </tr>
                       ) : (
-                        movements.map((movement) => (
-                          <tr key={movement.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              <div>{movement.createdAt.toLocaleDateString()}</div>
-                              <div className="text-xs text-gray-500">{movement.createdAt.toLocaleTimeString()}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {movement.productName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                movement.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {movement.type === 'entrada' ? 'Entrada' : 'Salida'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {movement.type === 'entrada' ? '+' : '-'}{movement.quantity}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {movement.reason}
-                            </td>
-                          </tr>
-                        ))
+                        movements.map((movement) => {
+                          const currentInventoryItem = inventory.find(item => item.productId === movement.productId)
+                          const currentStock = currentInventoryItem?.currentStock || 0
+                          const stockAtTransaction = movement.newStock !== undefined ? movement.newStock : currentStock
+                          
+                          return (
+                            <tr key={movement.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div>{movement.createdAt.toLocaleDateString()}</div>
+                                <div className="text-xs text-gray-500">{movement.createdAt.toLocaleTimeString()}</div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {movement.productName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  movement.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {movement.type === 'entrada' ? 'Entrada' : 'Salida'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {movement.type === 'entrada' ? '+' : '-'}{movement.quantity}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-lg font-extrabold text-green-900 bg-green-50">
+                                {stockAtTransaction}
+                                {movement.newStock === undefined && (
+                                  <span className="text-xs text-orange-600 ml-1 font-normal">(aprox)</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {movement.reason}
+                              </td>
+                            </tr>
+                          )
+                        })
                       )}
                     </tbody>
                   </table>
