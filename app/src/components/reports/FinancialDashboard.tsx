@@ -49,6 +49,7 @@ export default function FinancialDashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [products, setProducts] = useState([])
+  const [noSalesConfig, setNoSalesConfig] = useState<{ [key: string]: string }>({})
   
   // Funciones para rangos de fechas
   const setCurrentWeek = () => {
@@ -79,7 +80,26 @@ export default function FinancialDashboard() {
   const { expenses } = useExpenses()
   const { customers } = useCustomers()
   
-  // Cargar TODAS las ventas sin paginación
+  // Cargar configuración de fechas sin atención
+  useEffect(() => {
+    const loadNoSalesConfig = async () => {
+      try {
+        const q = query(collection(db, 'no_sales_config'))
+        const snapshot = await getDocs(q)
+        const config: { [key: string]: string } = {}
+        
+        snapshot.docs.forEach(doc => {
+          config[doc.id] = doc.data().reason
+        })
+        
+        setNoSalesConfig(config)
+      } catch (error) {
+        setNoSalesConfig({})
+      }
+    }
+    
+    loadNoSalesConfig()
+  }, [])
   useEffect(() => {
     const loadAllSales = async () => {
       try {
@@ -214,7 +234,75 @@ export default function FinancialDashboard() {
       totalCosts,
       netProfit: totalSales - totalCosts,
       salesCount: filteredSales.length,
-      avgTicket: filteredSales.length > 0 ? totalSales / filteredSales.length : 0
+      avgTicket: filteredSales.length > 0 ? totalSales / filteredSales.length : 0,
+      avgDailySales: (() => {
+        if (filteredSales.length === 0) return 0
+        
+        // Calcular días totales en el período
+        const from = new Date(dateFrom)
+        const to = new Date(dateTo)
+        let totalDays = 0
+        let excludedDays = 0
+        
+        const currentDate = new Date(from)
+        while (currentDate <= to) {
+          const dateKey = currentDate.toISOString().split('T')[0]
+          totalDays++
+          
+          // Excluir días marcados como "No apertura de local"
+          if (noSalesConfig[dateKey] === 'No apertura de local') {
+            excludedDays++
+          }
+          
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
+        
+        const workingDays = totalDays - excludedDays
+        return workingDays > 0 ? totalSales / workingDays : 0
+      })(),
+      closedDaysAnalysis: (() => {
+        const from = new Date(dateFrom)
+        const to = new Date(dateTo)
+        
+        // Calcular días estándar de cierre (1 por semana)
+        const diffTime = Math.abs(to - from)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+        const standardClosedDays = Math.ceil(diffDays / 7) // 1 día por cada 7 días (redondeado hacia arriba)
+        
+        // Días realmente cerrados
+        let actualClosedDays = 0
+        const closedDaysList = []
+        const currentDate = new Date(from)
+        while (currentDate <= to) {
+          // Usar hora local como en configuraciones
+          const year = currentDate.getFullYear()
+          const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+          const day = String(currentDate.getDate()).padStart(2, '0')
+          const dateKey = `${year}-${month}-${day}`
+          
+          if (noSalesConfig[dateKey] === 'No apertura de local') {
+            actualClosedDays++
+            closedDaysList.push(dateKey)
+          }
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
+        
+        console.log('CLOSED DAYS DEBUG:', {
+          period: `${dateFrom} - ${dateTo}`,
+          actualClosedDays,
+          closedDaysList,
+          standardClosedDays
+        })
+        
+        console.log('CLOSED DAYS LIST:', closedDaysList)
+        console.log('NO SALES CONFIG:', noSalesConfig)
+        
+        return {
+          standard: standardClosedDays,
+          actual: actualClosedDays,
+          difference: actualClosedDays - standardClosedDays
+        }
+      })()
     }
     
     // Debug para período 01-11 al 30-11
@@ -227,7 +315,7 @@ export default function FinancialDashboard() {
       console.log('============================================')
     }
     return result
-  }, [filteredSales, expenses, allPurchases, dateFrom, dateTo, products])
+  }, [filteredSales, expenses, allPurchases, dateFrom, dateTo, products, noSalesConfig])
 
   // Ventas por día
   const dailySales = useMemo(() => {
@@ -618,7 +706,7 @@ export default function FinancialDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Ventas Totales</h3>
               <p className="text-2xl font-bold text-green-600">S/ {metrics.totalSales.toFixed(2)}</p>
@@ -642,6 +730,22 @@ export default function FinancialDashboard() {
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Ticket Promedio</h3>
               <p className="text-2xl font-bold text-blue-600">S/ {metrics.avgTicket.toFixed(2)}</p>
+              <p className="text-sm text-gray-500">Por pedido</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Venta Diaria Promedio</h3>
+              <p className="text-2xl font-bold text-purple-600">S/ {metrics.avgDailySales.toFixed(2)}</p>
+              <p className="text-sm text-gray-500">Por día abierto</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-gray-500">Días Cerrados</h3>
+              <p className="text-2xl font-bold text-gray-600">{metrics.closedDaysAnalysis.actual}</p>
+              <div className="text-xs text-gray-500 mt-1">
+                <div>Estándar: {metrics.closedDaysAnalysis.standard} días</div>
+                <div className={metrics.closedDaysAnalysis.difference > 0 ? 'text-red-500' : metrics.closedDaysAnalysis.difference < 0 ? 'text-green-500' : 'text-gray-500'}>
+                  {metrics.closedDaysAnalysis.difference > 0 ? '+' : ''}{metrics.closedDaysAnalysis.difference} días
+                </div>
+              </div>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-sm font-medium text-gray-500">Pagos Totales (Gastos del mes)</h3>

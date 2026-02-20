@@ -25,7 +25,8 @@ export default function Dashboard() {
     { id: 'cash-closing', name: 'Cierre de Caja', description: 'Resumen Diario', color: 'gray', icon: '📊', path: '/cash-closing' },
     { id: 'accounts', name: 'Cuentas', description: 'Gestión de Cuentas', color: 'emerald', icon: '🏦', path: '/accounts' },
     { id: 'kitchen', name: 'Cocina', description: 'Insumos y Recetas', color: 'orange', icon: '🍳', path: '/kitchen' },
-    { id: 'rewards', name: 'Premios', description: 'Sistema de Recompensas', color: 'yellow', icon: '🏆', path: '/rewards' }
+    { id: 'rewards', name: 'Premios', description: 'Sistema de Recompensas', color: 'yellow', icon: '🏆', path: '/rewards' },
+    { id: 'configurations', name: 'Configuraciones', description: 'Configuración del Sistema', color: 'gray', icon: '⚙️', path: '/configurations' }
   ], [])
 
   const accessibleModules = useMemo(() => {
@@ -33,7 +34,13 @@ export default function Dashboard() {
       return []
     }
     
-    return modules.filter(module => canAccess(module.id as any))
+    return modules.filter(module => {
+      // Configuraciones usa el mismo permiso que reports
+      if (module.id === 'configurations') {
+        return canAccess('reports')
+      }
+      return canAccess(module.id as any)
+    })
   }, [modules, canAccess, loading, userRole])
 
   if (loading) {

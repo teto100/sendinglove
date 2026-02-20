@@ -58,6 +58,7 @@ export default function Header() {
     { name: 'Cierre Caja', href: '/cash-closing', icon: '💵', module: 'cash-closing' },
     { name: 'Cocina', href: '/kitchen', icon: '🍳', module: 'kitchen' },
     { name: 'Premios', href: '/rewards', icon: '🏆', module: 'rewards' },
+    { name: 'Configuraciones', href: '/configurations', icon: '⚙️', module: 'reports' },
     { name: 'Permisos', href: '/permissions', icon: '🔐', module: 'permissions' }
   ]
   
