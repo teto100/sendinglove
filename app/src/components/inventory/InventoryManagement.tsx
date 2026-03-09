@@ -225,90 +225,213 @@ export default function InventoryManagement() {
                             item.productName.toLowerCase().includes(searchTerm.toLowerCase())
                           )
                           .sort((a, b) => {
-                            // Obtener productos y sus categorías
-                            const productA = products.find(p => p.id === a.productId)
-                            const productB = products.find(p => p.id === b.productId)
+                            const getProductGroup = (productName: string) => {
+                              const name = productName.toLowerCase()
+                              
+                              // Combos (PRIMERO)
+                              if (name.includes('box desayuno') || name.includes('mini pie de limon 25 und') ||
+                                  name.includes('minialfajores 25 und') || name.includes('miniempanada de carne 50 und') ||
+                                  name.includes('caja pack 10')) {
+                                return { group: 'combos', order: 5 }
+                              }
+                              
+                              // Postres de temporada (SEGUNDO)
+                              if (name.includes('alfajor navideño') || name.includes('arroz con leche') || 
+                                  name.includes('combinado') || name.includes('cuchareable de alfajor') || 
+                                  name.includes('mazamorra') || name.includes('galleta navideña') ||
+                                  name.includes('torta de chocolate forma corazón') || name.includes('minitorta alfajor corazon')) {
+                                return { group: 'postres-temporada', order: 7 }
+                              }
+                              
+                              // Adicionales
+                              if (name.includes('adicional hamburguesa') || name.includes('adicional filete pollo') ||
+                                  name.includes('decoracion dulces') || name.includes('adicional hot dog') ||
+                                  name.includes('huevo frito') || name.includes('papas porción') ||
+                                  name.includes('taper delivery')) {
+                                return { group: 'adicionales', order: 6 }
+                              }
+                              
+                              // Tortas enteras
+                              if (name.includes('entera tarta') || name.includes('entera torta')) {
+                                return { group: 'tortas', order: 8 }
+                              }
+                              
+                              // Postres (excluyendo tortas enteras y combos)
+                              if ((name.includes('alfajor') && !name.includes('navideño') && !name.includes('corazón')) ||
+                                  name.includes('galleta chocochips') || name.includes('galleta rellena de nutella') ||
+                                  (name.includes('tarta de fresa') && !name.includes('entera')) || name.includes('tres leches chocolate') ||
+                                  name.includes('brownie') || name.includes('pie de manzana') ||
+                                  name.includes('torta de zanahoria') || name.includes('cupcake') ||
+                                  name.includes('keke') || name.includes('tres leches') ||
+                                  (name.includes('minialfajores') && !name.includes('25 und')) ||
+                                  name.includes('gelatina') || name.includes('leche asada') ||
+                                  name.includes('cupcake de naranja') || name.includes('pie de limón') ||
+                                  (name.includes('torta de chocolate') && !name.includes('forma corazón') && !name.includes('entera')) ||
+                                  name.includes('crema volteada')) {
+                                return { group: 'postres', order: 1 }
+                              }
+                              
+                              // Salados (excluyendo adicionales)
+                              if (name.includes('pan hamburguesa') || name.includes('alitas búfalo') || name.includes('empanada de carne') ||
+                                  name.includes('filete de pollo al plato') || name.includes('sanguche de filete de pollo') ||
+                                  name.includes('sanguche de pollo deshilachado') || name.includes('alitas criollas') ||
+                                  name.includes('salchipapa') || (name.includes('hamburguesa') && !name.includes('adicional'))) {
+                                return { group: 'salados', order: 2 }
+                              }
+                              
+                              // Gaseosas
+                              if (name.includes('coca cola') || name.includes('inca cola') || name.includes('fanta')) {
+                                return { group: 'gaseosas', order: 3 }
+                              }
+                              
+                              // Almuerzos
+                              if (name.includes('arroz a la cubana') || name.includes('arroz tapado') || 
+                                  name.includes('tallarines verdes') || name.includes('arroz con pollo')) {
+                                return { group: 'almuerzos', order: 4 }
+                              }
+                              
+                              // Bebidas frías
+                              if (name.includes('chicha') || name.includes('jugo fresa con leche') || name.includes('papaya con leche') ||
+                                  name.includes('jugo de fresa') || name.includes('jugo de papaya') || name.includes('milkshake de oreo') ||
+                                  name.includes('milkshake de fresa') || name.includes('jugo de piña') || name.includes('jugo plátano con leche')) {
+                                return { group: 'frias', order: 9 }
+                              }
+                              
+                              // Bebidas calientes
+                              if (name.includes('infusión') || name.includes('moka') || name.includes('latte') ||
+                                  name.includes('caramel') || name.includes('café con leche') || name.includes('café pasado') ||
+                                  name.includes('capuccino') || name.includes('americano')) {
+                                return { group: 'calientes', order: 10 }
+                              }
+                              
+                              return { group: 'otros', order: 0 }
+                            }
                             
-                            // Obtener nombres de categorías
-                            const categoryA = productA ? categories.find(c => c.id === productA.categoryId)?.name?.toLowerCase() || '' : ''
-                            const categoryB = productB ? categories.find(c => c.id === productB.categoryId)?.name?.toLowerCase() || '' : ''
+                            const groupA = getProductGroup(a.productName)
+                            const groupB = getProductGroup(b.productName)
                             
-                            // Identificar bebidas calientes por categoría
-                            const isHotDrinkA = categoryA.includes('bebida') && categoryA.includes('caliente')
-                            const isHotDrinkB = categoryB.includes('bebida') && categoryB.includes('caliente')
+                            if (groupA.order !== groupB.order) {
+                              return groupA.order - groupB.order
+                            }
                             
-                            // Identificar bebidas frías por categoría
-                            const isColdDrinkCategoryA = categoryA.includes('bebida') && (categoryA.includes('fría') || categoryA.includes('fria'))
-                            const isColdDrinkCategoryB = categoryB.includes('bebida') && (categoryB.includes('fría') || categoryB.includes('fria'))
-                            
-                            // Productos específicos a excluir de bebidas frías
-                            const excludedColdDrinks = ['inca cola', 'fanta', 'coca cola', 'milkshake de fresa', 'milkshake de oreo']
-                            const isExcludedColdA = excludedColdDrinks.some(drink => 
-                              a.productName.toLowerCase().includes(drink.toLowerCase())
-                            )
-                            const isExcludedColdB = excludedColdDrinks.some(drink => 
-                              b.productName.toLowerCase().includes(drink.toLowerCase())
-                            )
-                            
-                            // Bebidas frías finales (categoría bebida fría pero no excluidas)
-                            const isColdDrinkA = isColdDrinkCategoryA && !isExcludedColdA
-                            const isColdDrinkB = isColdDrinkCategoryB && !isExcludedColdB
-                            
-                            // Orden de prioridad:
-                            // 1. Otros productos (por stock menor)
-                            // 2. Bebidas frías (excluyendo específicas)
-                            // 3. Bebidas calientes al final
-                            
-                            if (isHotDrinkA && !isHotDrinkB) return 1  // A al final
-                            if (!isHotDrinkA && isHotDrinkB) return -1 // B al final
-                            
-                            if (isColdDrinkA && !isColdDrinkB && !isHotDrinkB) return 1  // A después de otros
-                            if (!isColdDrinkA && isColdDrinkB && !isHotDrinkA) return -1 // B después de otros
-                            
-                            // Si están en el mismo grupo, ordenar por stock actual (menor primero)
                             return a.currentStock - b.currentStock
                           })
                           .map((item, index, sortedArray) => {
-                            const productA = products.find(p => p.id === item.productId)
-                            const categoryA = productA ? categories.find(c => c.id === productA.categoryId)?.name?.toLowerCase() || '' : ''
-                            
-                            const isHotDrink = categoryA.includes('bebida') && categoryA.includes('caliente')
-                            const isColdDrinkCategory = categoryA.includes('bebida') && (categoryA.includes('fría') || categoryA.includes('fria'))
-                            const excludedColdDrinks = ['inca cola', 'fanta', 'coca cola', 'milkshake de fresa', 'milkshake de oreo']
-                            const isExcludedCold = excludedColdDrinks.some(drink => item.productName.toLowerCase().includes(drink.toLowerCase()))
-                            const isColdDrink = isColdDrinkCategory && !isExcludedCold
-                            
-                            let currentGroup = 'otros'
-                            if (isHotDrink) currentGroup = 'calientes'
-                            else if (isColdDrink) currentGroup = 'frias'
-                            
-                            let previousGroup = 'otros'
-                            if (index > 0) {
-                              const prevItem = sortedArray[index - 1]
-                              const prevProduct = products.find(p => p.id === prevItem.productId)
-                              const prevCategory = prevProduct ? categories.find(c => c.id === prevProduct.categoryId)?.name?.toLowerCase() || '' : ''
+                            const getProductGroup = (productName: string) => {
+                              const name = productName.toLowerCase()
                               
-                              const prevIsHotDrink = prevCategory.includes('bebida') && prevCategory.includes('caliente')
-                              const prevIsColdDrinkCategory = prevCategory.includes('bebida') && (prevCategory.includes('fría') || prevCategory.includes('fria'))
-                              const prevIsExcludedCold = excludedColdDrinks.some(drink => prevItem.productName.toLowerCase().includes(drink.toLowerCase()))
-                              const prevIsColdDrink = prevIsColdDrinkCategory && !prevIsExcludedCold
+                              // Combos (PRIMERO)
+                              if (name.includes('box desayuno') || name.includes('mini pie de limon 25 und') ||
+                                  name.includes('minialfajores 25 und') || name.includes('miniempanada de carne 50 und') ||
+                                  name.includes('caja pack 10')) {
+                                return { group: 'combos', order: 5 }
+                              }
                               
-                              if (prevIsHotDrink) previousGroup = 'calientes'
-                              else if (prevIsColdDrink) previousGroup = 'frias'
+                              // Postres de temporada (SEGUNDO)
+                              if (name.includes('alfajor navideño') || name.includes('arroz con leche') || 
+                                  name.includes('combinado') || name.includes('cuchareable de alfajor') || 
+                                  name.includes('mazamorra') || name.includes('galleta navideña') ||
+                                  name.includes('torta de chocolate forma corazón') || name.includes('minitorta alfajor corazon')) {
+                                return { group: 'postres-temporada', order: 7 }
+                              }
+                              
+                              // Adicionales
+                              if (name.includes('adicional hamburguesa') || name.includes('adicional filete pollo') ||
+                                  name.includes('decoracion dulces') || name.includes('adicional hot dog') ||
+                                  name.includes('huevo frito') || name.includes('papas porción') ||
+                                  name.includes('taper delivery')) {
+                                return { group: 'adicionales', order: 6 }
+                              }
+                              
+                              // Tortas enteras
+                              if (name.includes('entera tarta') || name.includes('entera torta')) {
+                                return { group: 'tortas', order: 8 }
+                              }
+                              
+                              // Postres (excluyendo tortas enteras y combos)
+                              if ((name.includes('alfajor') && !name.includes('navideño') && !name.includes('corazón')) ||
+                                  name.includes('galleta chocochips') || name.includes('galleta rellena de nutella') ||
+                                  (name.includes('tarta de fresa') && !name.includes('entera')) || name.includes('tres leches chocolate') ||
+                                  name.includes('brownie') || name.includes('pie de manzana') ||
+                                  name.includes('torta de zanahoria') || name.includes('cupcake') ||
+                                  name.includes('keke') || name.includes('tres leches') ||
+                                  (name.includes('minialfajores') && !name.includes('25 und')) ||
+                                  name.includes('gelatina') || name.includes('leche asada') ||
+                                  name.includes('cupcake de naranja') || name.includes('pie de limón') ||
+                                  (name.includes('torta de chocolate') && !name.includes('forma corazón') && !name.includes('entera')) ||
+                                  name.includes('crema volteada')) {
+                                return { group: 'postres', order: 1 }
+                              }
+                              
+                              // Salados (excluyendo adicionales)
+                              if (name.includes('pan hamburguesa') || name.includes('alitas búfalo') || name.includes('empanada de carne') ||
+                                  name.includes('filete de pollo al plato') || name.includes('sanguche de filete de pollo') ||
+                                  name.includes('sanguche de pollo deshilachado') || name.includes('alitas criollas') ||
+                                  name.includes('salchipapa') || (name.includes('hamburguesa') && !name.includes('adicional'))) {
+                                return { group: 'salados', order: 2 }
+                              }
+                              
+                              // Gaseosas
+                              if (name.includes('coca cola') || name.includes('inca cola') || name.includes('fanta')) {
+                                return { group: 'gaseosas', order: 3 }
+                              }
+                              
+                              // Almuerzos
+                              if (name.includes('arroz a la cubana') || name.includes('arroz tapado') || 
+                                  name.includes('tallarines verdes') || name.includes('arroz con pollo')) {
+                                return { group: 'almuerzos', order: 4 }
+                              }
+                              
+                              // Bebidas frías
+                              if (name.includes('chicha') || name.includes('jugo fresa con leche') || name.includes('papaya con leche') ||
+                                  name.includes('jugo de fresa') || name.includes('jugo de papaya') || name.includes('milkshake de oreo') ||
+                                  name.includes('milkshake de fresa') || name.includes('jugo de piña') || name.includes('jugo plátano con leche')) {
+                                return { group: 'frias', order: 9 }
+                              }
+                              
+                              // Bebidas calientes
+                              if (name.includes('infusión') || name.includes('moka') || name.includes('latte') ||
+                                  name.includes('caramel') || name.includes('café con leche') || name.includes('café pasado') ||
+                                  name.includes('capuccino') || name.includes('americano')) {
+                                return { group: 'calientes', order: 10 }
+                              }
+                              
+                              return { group: 'otros', order: 0 }
                             }
                             
-                            const showSeparator = currentGroup !== previousGroup
+                            const currentGroup = getProductGroup(item.productName)
+                            
+                            let previousGroup = { group: 'otros', order: 0 }
+                            if (index > 0) {
+                              const prevItem = sortedArray[index - 1]
+                              previousGroup = getProductGroup(prevItem.productName)
+                            }
+                            
+                            const groupLabels = {
+                              'postres': '🍰 Postres',
+                              'salados': '🍗 Salados', 
+                              'gaseosas': '🥤 Gaseosas',
+                              'almuerzos': '🍲 Almuerzos',
+                              'combos': '📦 Combos',
+                              'adicionales': '➕ Adicionales',
+                              'postres-temporada': '🎄 Postres de Temporada',
+                              'tortas': '🎂 Tortas/Moldes Enteros',
+                              'frias': '🧊 Bebidas Frías',
+                              'calientes': '☕ Bebidas Calientes',
+                              'otros': 'Producto'
+                            }
+                            
+                            const showSeparator = currentGroup.group !== previousGroup.group && currentGroup.group !== 'otros'
                             
                             return (
                               <React.Fragment key={`group-${item.productId}`}>
-                                {showSeparator && index > 0 && (
+                                {showSeparator && (
                                   <tr key={`separator-${index}`}>
                                     <td colSpan={deviceType === 'mobile' ? 2 : 5} className="px-6 py-3">
                                       <div className="flex items-center">
                                         <div className="flex-1 border-t-2 border-gray-400"></div>
                                         <span className="px-4 text-sm font-semibold text-gray-600 bg-white">
-                                          {currentGroup === 'frias' ? '🧊 Bebidas Frías' : 
-                                           currentGroup === 'calientes' ? '☕ Bebidas Calientes' : ''}
+                                          {groupLabels[currentGroup.group] || 'Producto'}
                                         </span>
                                         <div className="flex-1 border-t-2 border-gray-400"></div>
                                       </div>
